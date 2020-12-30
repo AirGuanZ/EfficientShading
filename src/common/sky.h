@@ -18,7 +18,7 @@ public:
         const std::string &posZ,
         const std::string &negZ);
 
-    rg::Vertex *addToRenderGraph(
+    rg::Pass *addToRenderGraph(
         rg::Graph    &graph,
         rg::Resource *renderTarget);
 
@@ -33,6 +33,8 @@ private:
     void initPipeline(DXGI_FORMAT RTFmt);
 
     void initConstantBuffer();
+
+    void doSkyPass(rg::PassContext &ctx);
 
     struct Vertex
     {
@@ -57,6 +59,8 @@ private:
 
     UniqueResource cubeTex_;
     Descriptor     cubeTexSRV_;
+
+    rg::Resource *renderTarget_;
 
     D3D12_VIEWPORT viewport_;
     D3D12_RECT     scissor_;

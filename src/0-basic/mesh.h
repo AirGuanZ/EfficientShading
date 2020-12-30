@@ -40,7 +40,7 @@ public:
 
     explicit MeshRenderer(D3D12Context &d3d12);
 
-    rg::Vertex *addToRenderGraph(
+    rg::Pass *addToRenderGraph(
         rg::Graph    &graph,
         rg::Resource *renderTarget,
         rg::Resource *depthStencil);

@@ -8,6 +8,7 @@ SkyRenderer::SkyRenderer(
     ResourceUploader &uploader)
     : d3d12_(d3d12),
       uploader_(uploader),
+      renderTarget_(nullptr),
       viewport_(),
       scissor_()
 {
@@ -84,22 +85,22 @@ void SkyRenderer::loadSkyBox(
     uploader_.sync();
 }
 
-rg::Vertex *SkyRenderer::addToRenderGraph(
+rg::Pass *SkyRenderer::addToRenderGraph(
     rg::Graph    &graph,
     rg::Resource *renderTarget)
 {
     initVertexBuffer();
     initRootSignature();
-    initPipeline(renderTarget->getDescription()->Format);
+    initPipeline(renderTarget->getDescription().Format);
     initConstantBuffer();
 
-    const auto desc = renderTarget->getDescription();
+    const auto &desc = renderTarget->getDescription();
 
     viewport_ = D3D12_VIEWPORT{
         .TopLeftX = 0,
         .TopLeftY = 0,
-        .Width    = static_cast<float>(desc->Width),
-        .Height   = static_cast<float>(desc->Height),
+        .Width    = static_cast<float>(desc.Width),
+        .Height   = static_cast<float>(desc.Height),
         .MinDepth = 0,
         .MaxDepth = 1
     };
@@ -107,8 +108,8 @@ rg::Vertex *SkyRenderer::addToRenderGraph(
     scissor_ = D3D12_RECT{
         .left   = 0,
         .top    = 0,
-        .right  = static_cast<LONG>(desc->Width),
-        .bottom = static_cast<LONG>(desc->Height)
+        .right  = static_cast<LONG>(desc.Width),
+        .bottom = static_cast<LONG>(desc.Height)
     };
 
     D3D12_RENDER_TARGET_VIEW_DESC RTVDesc;
@@ -116,38 +117,16 @@ rg::Vertex *SkyRenderer::addToRenderGraph(
     RTVDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
     RTVDesc.Texture2D     = { 0, 0 };
 
-    auto vtx = graph.addVertex("render sky box");
-    vtx->useResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, RTVDesc);
-    vtx->setCallback([=](rg::PassContext &ctx)
+    renderTarget_ = renderTarget;
+
+    auto pass = graph.addPass("render sky box");
+    pass->declDescriptor(renderTarget, RTVDesc);
+    pass->setCallback([this](rg::PassContext &ctx)
     {
-        if(!cubeTexSRV_)
-            return;
-
-        vsTransform_.updateData(ctx.getFrameIndex(), { eye_, 0, viewProj_ });
-
-        auto RTV = ctx.getDescriptor(renderTarget).getCPUHandle();
-        ctx->OMSetRenderTargets(1, &RTV, false, nullptr);
-
-        ctx->SetPipelineState(pipeline_.Get());
-        ctx->SetGraphicsRootSignature(rootSignature_.Get());
-
-        ctx->RSSetViewports(1, &viewport_);
-        ctx->RSSetScissorRects(1, &scissor_);
-
-        ctx->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        const auto vertexBufferView = vertexBuffer_.getView();
-        ctx->IASetVertexBuffers(0, 1, &vertexBufferView);
-
-        ctx->SetGraphicsRootConstantBufferView(
-            0, vsTransform_.getGPUVirtualAddress(ctx.getFrameIndex()));
-        ctx->SetGraphicsRootDescriptorTable(
-            1, cubeTexSRV_.getGPUHandle());
-        
-        ctx->DrawInstanced(vertexBuffer_.getVertexCount(), 1, 0, 0);
+        doSkyPass(ctx);
     });
 
-    return vtx;
+    return pass;
 }
 
 void SkyRenderer::setCamera(const Float3 &eye, const Mat4 &viewProj) noexcept
@@ -237,4 +216,33 @@ void SkyRenderer::initConstantBuffer()
     vsTransform_.initializeUpload(
         d3d12_.getResourceManager(),
         d3d12_.getFramebufferCount());
+}
+
+void SkyRenderer::doSkyPass(rg::PassContext &ctx)
+{
+    if(!cubeTexSRV_)
+        return;
+
+    vsTransform_.updateData(ctx.getFrameIndex(), { eye_, 0, viewProj_ });
+
+    auto RTV = ctx.getDescriptor(renderTarget_).getCPUHandle();
+    ctx->OMSetRenderTargets(1, &RTV, false, nullptr);
+
+    ctx->SetPipelineState(pipeline_.Get());
+    ctx->SetGraphicsRootSignature(rootSignature_.Get());
+
+    ctx->RSSetViewports(1, &viewport_);
+    ctx->RSSetScissorRects(1, &scissor_);
+
+    ctx->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    const auto vertexBufferView = vertexBuffer_.getView();
+    ctx->IASetVertexBuffers(0, 1, &vertexBufferView);
+
+    ctx->SetGraphicsRootConstantBufferView(
+        0, vsTransform_.getGPUVirtualAddress(ctx.getFrameIndex()));
+    ctx->SetGraphicsRootDescriptorTable(
+        1, cubeTexSRV_.getGPUHandle());
+
+    ctx->DrawInstanced(vertexBuffer_.getVertexCount(), 1, 0, 0);
 }

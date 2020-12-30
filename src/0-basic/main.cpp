@@ -114,11 +114,11 @@ void run()
         DSVDesc.Flags         = D3D12_DSV_FLAG_NONE;
         DSVDesc.Texture2D     = { 0 };
 
-        auto clearPass = graph.addVertex("clear");
-        clearPass->useResource(
-            renderTargetRsc, D3D12_RESOURCE_STATE_RENDER_TARGET, RTVDesc);
-        clearPass->useResource(
-            depthStencilRsc, D3D12_RESOURCE_STATE_DEPTH_WRITE, DSVDesc);
+        auto clearPass = graph.addPass("clear");
+        clearPass->declDescriptor(
+            renderTargetRsc, RTVDesc);
+        clearPass->declDescriptor(
+            depthStencilRsc, DSVDesc);
         clearPass->setCallback([&](rg::PassContext &ctx)
         {
             const float background[4] = { 0, 1, 1, 0 };
@@ -149,9 +149,9 @@ void run()
 
         // arcs
 
-        graph.addArc(clearPass, skyPass);
-        graph.addArc(skyPass, meshPass);
-        graph.addArc(meshPass, imguiPass);
+        graph.addDependency(clearPass, skyPass);
+        graph.addDependency(skyPass, meshPass);
+        graph.addDependency(meshPass, imguiPass);
 
         graph.compile(
             d3d12.getDevice(),

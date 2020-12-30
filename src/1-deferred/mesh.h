@@ -12,7 +12,7 @@ public:
         Mat4 worldViewProj;
     };
 
-    struct Mesh : :: Mesh
+    struct Mesh : ::Mesh
     {
         void load(
             D3D12Context      &d3d12,
@@ -34,8 +34,8 @@ public:
 
     struct RenderGraphNodes
     {
-        rg::Vertex *entry = nullptr;
-        rg::Vertex *exit  = nullptr;
+        rg::Pass *entry = nullptr;
+        rg::Pass *exit  = nullptr;
     };
 
     explicit MeshRenderer(D3D12Context &d3d12);
@@ -84,11 +84,12 @@ private:
     ComPtr<ID3D12RootSignature> gbufferRootSignature_;
     ComPtr<ID3D12PipelineState> gbufferPipeline_;
 
-    // 0: psParams              (b0)
-    // 1: lightBuffer           (t0)
-    // 2: psTable, gbuffer a    (t1)
-    // 3: psTable, gbuffer b    (t2)
-    // 4: psTable, gbuffer depth(t3)
+    // 0: psParams        (b0)
+    // 1: lightBuffer     (t0)
+    // 2: psTable
+    //      gbuffer a     (t1)
+    //      gbuffer b     (t2)
+    //      gbuffer depth (t3)
     // point sampler            (s0)
     ComPtr<ID3D12RootSignature> lightingRootSignature_;
     ComPtr<ID3D12PipelineState> lightingPipeline_;
@@ -102,6 +103,8 @@ private:
     rg::InternalResource *gbufferBRsc_;
     rg::InternalResource *gbufferDepthRsc_;
     rg::Resource         *renderTargetRsc_;
+
+    rg::DescriptorTable *psTable_;
 
     std::vector<const Mesh *> meshes_;
 

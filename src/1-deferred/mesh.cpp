@@ -24,7 +24,8 @@ MeshRenderer::MeshRenderer(D3D12Context &d3d12)
       gbufferARsc_(nullptr),
       gbufferBRsc_(nullptr),
       gbufferDepthRsc_(nullptr),
-      renderTargetRsc_(nullptr)
+      renderTargetRsc_(nullptr),
+      psTable_(nullptr)
 {
     initRootSignature();
     initConstantBuffer();
@@ -34,10 +35,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
     rg::Graph    &graph,
     rg::Resource *renderTarget)
 {
-    initPipeline(renderTarget->getDescription()->Format);
+    initPipeline(renderTarget->getDescription().Format);
 
-    const UINT64 w = renderTarget->getDescription()->Width;
-    const UINT   h = renderTarget->getDescription()->Height;
+    const UINT64 w = renderTarget->getDescription().Width;
+    const UINT   h = renderTarget->getDescription().Height;
 
     viewport_ = D3D12_VIEWPORT{
         .TopLeftX = 0,
@@ -91,23 +92,24 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     // gbuffer pass
 
-    auto gbufferPass = graph.addVertex("gbuffer");
-    gbufferPass->useResource(
-        gbufferARsc_, D3D12_RESOURCE_STATE_RENDER_TARGET,
+    auto gbufferPass = graph.addPass("gbuffer");
+
+    gbufferPass->declDescriptor(
+        gbufferARsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,
             .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = { 0, 0 }
         });
-    gbufferPass->useResource(
-        gbufferBRsc_, D3D12_RESOURCE_STATE_RENDER_TARGET,
+    gbufferPass->declDescriptor(
+        gbufferBRsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,
             .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = { 0, 0 }
         });
-    gbufferPass->useResource(
-        gbufferDepthRsc_, D3D12_RESOURCE_STATE_DEPTH_WRITE,
+    gbufferPass->declDescriptor(
+        gbufferDepthRsc_,
         D3D12_DEPTH_STENCIL_VIEW_DESC{
             .Format        = DXGI_FORMAT_D32_FLOAT,
             .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
@@ -123,9 +125,11 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     // lighting pass
 
-    auto lightingPass = graph.addVertex("lighting");
-    lightingPass->useResource(
-        gbufferARsc_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+    auto lightingPass = graph.addPass("lighting");
+
+    psTable_ = lightingPass->declareDescriptorTable(rg::Pass::GPUOnly);
+    psTable_->declDescriptor(
+        gbufferARsc_,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -136,9 +140,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        });
-    lightingPass->useResource(
-        gbufferBRsc_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        },
+        rg::ShaderResourceType::PixelOnly);
+    psTable_->declDescriptor(
+        gbufferBRsc_,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R8G8B8A8_UNORM,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -149,9 +154,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        });
-    lightingPass->useResource(
-        gbufferDepthRsc_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        },
+        rg::ShaderResourceType::PixelOnly);
+    psTable_->declDescriptor(
+        gbufferDepthRsc_,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R32_FLOAT,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -162,9 +168,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        });
-    lightingPass->useResource(
-        renderTargetRsc_, D3D12_RESOURCE_STATE_RENDER_TARGET,
+        },
+        rg::ShaderResourceType::PixelOnly);
+    lightingPass->declDescriptor(
+        renderTargetRsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,
             .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
@@ -176,7 +183,7 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
         doLightingPass(ctx);
     });
 
-    graph.addArc(gbufferPass, lightingPass);
+    graph.addDependency(gbufferPass, lightingPass);
 
     return { gbufferPass, lightingPass };
 }
@@ -233,17 +240,13 @@ void MeshRenderer::initRootSignature()
     // lighting root signature
 
     {
-        CD3DX12_DESCRIPTOR_RANGE psTableRange[3];
-        psTableRange[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
-        psTableRange[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
-        psTableRange[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-
-        CD3DX12_ROOT_PARAMETER params[5];
+        CD3DX12_DESCRIPTOR_RANGE psTableRange;
+        psTableRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 1);
+        
+        CD3DX12_ROOT_PARAMETER params[3];
         params[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_PIXEL);
         params[1].InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_PIXEL);
-        params[2].InitAsDescriptorTable(1, &psTableRange[0], D3D12_SHADER_VISIBILITY_PIXEL);
-        params[3].InitAsDescriptorTable(1, &psTableRange[1], D3D12_SHADER_VISIBILITY_PIXEL);
-        params[4].InitAsDescriptorTable(1, &psTableRange[2], D3D12_SHADER_VISIBILITY_PIXEL);
+        params[2].InitAsDescriptorTable(1, &psTableRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         RootSignatureBuilder builder(d3d12_.getDevice());
         for(auto &p : params)
@@ -420,27 +423,8 @@ void MeshRenderer::doLightingPass(rg::PassContext &ctx)
 
     // gbuffers
 
-    //auto descTable = d3d12_.allocTransientRange(3);
-    //d3d12_.getDevice()->CopyDescriptorsSimple(
-    //    1,
-    //    descTable[0].getCPUHandle(),
-    //    ctx.getDescriptor(gbufferARsc_).getCPUHandle(),
-    //    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    //d3d12_.getDevice()->CopyDescriptorsSimple(
-    //    1,
-    //    descTable[1].getCPUHandle(),
-    //    ctx.getDescriptor(gbufferBRsc_).getCPUHandle(),
-    //    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    //d3d12_.getDevice()->CopyDescriptorsSimple(
-    //    1,
-    //    descTable[2].getCPUHandle(),
-    //    ctx.getDescriptor(gbufferDepthRsc_).getCPUHandle(),
-    //    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    //ctx->SetGraphicsRootDescriptorTable(2, descTable[0].getGPUHandle());
-
-    ctx->SetGraphicsRootDescriptorTable(2, ctx.getDescriptor(gbufferARsc_));
-    ctx->SetGraphicsRootDescriptorTable(3, ctx.getDescriptor(gbufferBRsc_));
-    ctx->SetGraphicsRootDescriptorTable(4, ctx.getDescriptor(gbufferDepthRsc_));
+    auto psTable = ctx.getDescriptorRange(psTable_);
+    ctx->SetGraphicsRootDescriptorTable(2, psTable[0]);
 
     ctx->DrawInstanced(3, 1, 0, 0);
 }

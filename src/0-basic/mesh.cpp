@@ -29,22 +29,22 @@ MeshRenderer::MeshRenderer(D3D12Context &d3d12)
     initConstantBuffer();
 }
 
-rg::Vertex *MeshRenderer::addToRenderGraph(
-    rg::Graph                     &graph,
-    rg::Resource                  *renderTarget,
-    rg::Resource                  *depthStencil)
+rg::Pass *MeshRenderer::addToRenderGraph(
+    rg::Graph    &graph,
+    rg::Resource *renderTarget,
+    rg::Resource *depthStencil)
 {
     initPipeline(
-        renderTarget->getDescription()->Format,
-        depthStencil->getDescription()->Format);
+        renderTarget->getDescription().Format,
+        depthStencil->getDescription().Format);
     
-    const auto RTDesc = renderTarget->getDescription();
+    const auto &RTDesc = renderTarget->getDescription();
 
     viewport_ = D3D12_VIEWPORT{
         .TopLeftX = 0,
         .TopLeftY = 0,
-        .Width    = static_cast<float>(RTDesc->Width),
-        .Height   = static_cast<float>(RTDesc->Height),
+        .Width    = static_cast<float>(RTDesc.Width),
+        .Height   = static_cast<float>(RTDesc.Height),
         .MinDepth = 0,
         .MaxDepth = 1
     };
@@ -52,8 +52,8 @@ rg::Vertex *MeshRenderer::addToRenderGraph(
     scissor_ = D3D12_RECT{
         .left   = 0,
         .top    = 0,
-        .right  = static_cast<LONG>(RTDesc->Width),
-        .bottom = static_cast<LONG>(RTDesc->Height)
+        .right  = static_cast<LONG>(RTDesc.Width),
+        .bottom = static_cast<LONG>(RTDesc.Height)
     };
 
     const D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {
@@ -69,14 +69,15 @@ rg::Vertex *MeshRenderer::addToRenderGraph(
         .Texture2D     = { 0 }
     };
 
-    auto pass = graph.addVertex("mesh renderer");
+    auto pass = graph.addPass("mesh renderer");
 
-    pass->useResource(
-        renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, RTVDesc);
-    pass->useResource(
-        depthStencil, D3D12_RESOURCE_STATE_DEPTH_WRITE, DSVDesc);
+    pass->declDescriptor(
+        renderTarget, RTVDesc);
+    pass->declDescriptor(
+        depthStencil, DSVDesc, rg::DepthStencilType::ReadAndWrite);
 
-    pass->setCallback([renderTarget, depthStencil, this](rg::PassContext &ctx)
+    pass->setCallback(
+        [renderTarget, depthStencil, this](rg::PassContext &ctx)
     {
         const int frame = ctx.getFrameIndex();
 
