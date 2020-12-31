@@ -71,10 +71,8 @@ rg::Pass *MeshRenderer::addToRenderGraph(
 
     auto pass = graph.addPass("mesh renderer");
 
-    pass->declDescriptor(
-        renderTarget, RTVDesc);
-    pass->declDescriptor(
-        depthStencil, DSVDesc, rg::DepthStencilType::ReadAndWrite);
+    pass->addRTV(renderTarget, RTVDesc);
+    pass->addDSV(depthStencil, DSVDesc);
 
     pass->setCallback(
         [renderTarget, depthStencil, this](rg::PassContext &ctx)

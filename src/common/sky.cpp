@@ -120,7 +120,7 @@ rg::Pass *SkyRenderer::addToRenderGraph(
     renderTarget_ = renderTarget;
 
     auto pass = graph.addPass("render sky box");
-    pass->declDescriptor(renderTarget, RTVDesc);
+    pass->addRTV(renderTarget, RTVDesc);
     pass->setCallback([this](rg::PassContext &ctx)
     {
         doSkyPass(ctx);

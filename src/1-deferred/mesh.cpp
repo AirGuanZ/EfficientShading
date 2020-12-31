@@ -94,21 +94,21 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     auto gbufferPass = graph.addPass("gbuffer");
 
-    gbufferPass->declDescriptor(
+    gbufferPass->addRTV(
         gbufferARsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,
             .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = { 0, 0 }
         });
-    gbufferPass->declDescriptor(
+    gbufferPass->addRTV(
         gbufferBRsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,
             .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = { 0, 0 }
         });
-    gbufferPass->declDescriptor(
+    gbufferPass->addDSV(
         gbufferDepthRsc_,
         D3D12_DEPTH_STENCIL_VIEW_DESC{
             .Format        = DXGI_FORMAT_D32_FLOAT,
@@ -128,8 +128,9 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
     auto lightingPass = graph.addPass("lighting");
 
     psTable_ = lightingPass->declareDescriptorTable(rg::Pass::GPUOnly);
-    psTable_->declDescriptor(
+    psTable_->addSRV(
         gbufferARsc_,
+        rg::ShaderResourceType::PixelOnly,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R32G32B32A32_FLOAT,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -140,10 +141,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        },
-        rg::ShaderResourceType::PixelOnly);
-    psTable_->declDescriptor(
+        });
+    psTable_->addSRV(
         gbufferBRsc_,
+        rg::ShaderResourceType::PixelOnly,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R8G8B8A8_UNORM,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -154,10 +155,10 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        },
-        rg::ShaderResourceType::PixelOnly);
-    psTable_->declDescriptor(
+        });
+    psTable_->addSRV(
         gbufferDepthRsc_,
+        rg::ShaderResourceType::PixelOnly,
         D3D12_SHADER_RESOURCE_VIEW_DESC{
             .Format                  = DXGI_FORMAT_R32_FLOAT,
             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -168,9 +169,8 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
                 .PlaneSlice          = 0,
                 .ResourceMinLODClamp = 0
             }
-        },
-        rg::ShaderResourceType::PixelOnly);
-    lightingPass->declDescriptor(
+        });
+    lightingPass->addRTV(
         renderTargetRsc_,
         D3D12_RENDER_TARGET_VIEW_DESC{
             .Format        = DXGI_FORMAT_UNKNOWN,

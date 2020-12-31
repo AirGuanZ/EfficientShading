@@ -162,6 +162,12 @@ void run()
         if(input->isPressed(KEY_ESCAPE))
             d3d12.setCloseFlag(true);
 
+        if(d3d12.getInput()->isDown(KEY_LCTRL))
+        {
+            input->showCursor(!input->isCursorVisible());
+            input->setCursorLock(!input->isCursorLocked());
+        }
+
         if(ImGui::Begin("forward", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());

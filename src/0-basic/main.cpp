@@ -115,9 +115,9 @@ void run()
         DSVDesc.Texture2D     = { 0 };
 
         auto clearPass = graph.addPass("clear");
-        clearPass->declDescriptor(
+        clearPass->addRTV(
             renderTargetRsc, RTVDesc);
-        clearPass->declDescriptor(
+        clearPass->addDSV(
             depthStencilRsc, DSVDesc);
         clearPass->setCallback([&](rg::PassContext &ctx)
         {
@@ -181,21 +181,18 @@ void run()
             .lightAmbient     = Float3(0.01f)
         },
         MeshRenderer::Light{
-
             .lightPosition    = { 0, -3, 0 },
             .maxLightDistance = 15,
             .lightIntensity   = Float3(2, 0, 1),
             .lightAmbient     = Float3(0)
         },
         MeshRenderer::Light{
-
             .lightPosition    = { -10, -1.5, 0 },
             .maxLightDistance = 15,
             .lightIntensity   = Float3(1, 2, 0),
             .lightAmbient     = Float3(0)
         },
         MeshRenderer::Light{
-
             .lightPosition    = { -10, -9, 0 },
             .maxLightDistance = 3,
             .lightIntensity   = Float3(7, 0, 0),
