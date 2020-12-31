@@ -4,19 +4,6 @@
 
 #include "./mesh.h"
 
-void MeshRenderer::Mesh::load(
-    D3D12Context      &d3d12,
-    ResourceUploader  &uploader,
-    const std::string &model,
-    const std::string &albedo,
-    const std::string &metallic,
-    const std::string &roughness)
-{
-    ::Mesh::load(d3d12, uploader, model, albedo, metallic, roughness);
-    vsTransform.initializeUpload(
-        d3d12.getResourceManager(), d3d12.getFramebufferCount());
-}
-
 MeshRenderer::MeshRenderer(D3D12Context &d3d12)
     : d3d12_(d3d12),
       viewport_(),
@@ -39,22 +26,9 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     const UINT64 w = renderTarget->getDescription().Width;
     const UINT   h = renderTarget->getDescription().Height;
-
-    viewport_ = D3D12_VIEWPORT{
-        .TopLeftX = 0,
-        .TopLeftY = 0,
-        .Width    = static_cast<float>(w),
-        .Height   = static_cast<float>(h),
-        .MinDepth = 0,
-        .MaxDepth = 1
-    };
-
-    scissor_ = D3D12_RECT{
-        .left   = 0,
-        .top    = 0,
-        .right  = static_cast<LONG>(w),
-        .bottom = static_cast<LONG>(h)
-    };
+    
+    viewport_ = CD3DX12_VIEWPORT(0.0f, 0.0f, float(w), float(h));
+    scissor_  = CD3DX12_RECT(0, 0, LONG(w), LONG(h));
 
     // internal resources
 

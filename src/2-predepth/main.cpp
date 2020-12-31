@@ -4,8 +4,8 @@
 
 #include "../common/camera.h"
 #include "../common/sky.h"
-
-#include "./mesh.h"
+#include "./depth.h"
+#include "./forward.h"
 
 void run()
 {
@@ -14,7 +14,7 @@ void run()
     // d3d12 context
 
     WindowDesc windowDesc;
-    windowDesc.title      = L"deferred";
+    windowDesc.title      = L"predepth";
     windowDesc.clientSize = { 800, 600 };
 
     SwapChainDesc swapChainDesc;
@@ -44,17 +44,13 @@ void run()
 
     // mesh
 
-    MeshRenderer meshRenderer(d3d12);
-
-    MeshRenderer::Mesh mesh;
+    Mesh mesh;
     mesh.load(
         d3d12, uploader,
         "./asset/mesh/eglise/mesh.obj",
         "./asset/mesh/eglise/albedo.png",
         "./asset/mesh/eglise/metallic.png",
         "./asset/mesh/eglise/roughness.png");
-
-    meshRenderer.addMesh(&mesh);
 
     // camera
 
@@ -66,10 +62,49 @@ void run()
     input->setCursorLock(
         true, d3d12.getClientWidth() / 2, d3d12.getClientHeight() / 2);
 
+    // renderers
+
+    PreDepthRenderer depthRenderer(d3d12);
+    ForwardRenderer forwardRenderer(d3d12);
+    
+    std::vector<ForwardRenderer::Light> lights = {
+        ForwardRenderer::Light{
+            .lightPosition    = { 2, 0, 0 },
+            .maxLightDistance = 15,
+            .lightIntensity   = Float3(0, 1, 2),
+            .lightAmbient     = Float3(0.01f)
+        },
+        ForwardRenderer::Light{
+            .lightPosition    = { 0, -3, 0 },
+            .maxLightDistance = 15,
+            .lightIntensity   = Float3(2, 0, 1),
+            .lightAmbient     = Float3(0)
+        },
+        ForwardRenderer::Light{
+            .lightPosition    = { -10, -1.5, 0 },
+            .maxLightDistance = 15,
+            .lightIntensity   = Float3(1, 2, 0),
+            .lightAmbient     = Float3(0)
+        },
+        ForwardRenderer::Light{
+            .lightPosition    = { -10, -9, 0 },
+            .maxLightDistance = 3,
+            .lightIntensity   = Float3(7, 0, 0),
+            .lightAmbient     = Float3(0)
+        }
+    };
+
+    forwardRenderer.setLights(
+        lights.data(), lights.size(), d3d12.getResourceManager(), uploader);
+
+    depthRenderer.addMesh(&mesh);
+    forwardRenderer.addMesh(&mesh);
+
     // render graph
 
     rg::Graph graph;
-    rg::ExternalResource *framebufferRsc = nullptr;
+    rg::ExternalResource *framebuffer = nullptr;
+    rg::InternalResource *depthBuffer = nullptr;
 
     auto initGraph = [&]
     {
@@ -80,28 +115,38 @@ void run()
 
         // create resource nodes
 
-        framebufferRsc = graph.addExternalResource("framebuffer");
-        framebufferRsc->setDescription(d3d12.getFramebuffer()->GetDesc());
-        framebufferRsc->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
-        framebufferRsc->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
+        framebuffer = graph.addExternalResource("framebuffer");
+        framebuffer->setDescription(d3d12.getFramebuffer()->GetDesc());
+        framebuffer->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
+        framebuffer->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
 
-        // sky pass
+        depthBuffer = graph.addInternalResource("depth buffer");
+        depthBuffer->setDescription(CD3DX12_RESOURCE_DESC::Tex2D(
+            DXGI_FORMAT_D32_FLOAT,
+            framebuffer->getDescription().Width,
+            framebuffer->getDescription().Height,
+            1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
+        depthBuffer->setClearValue(D3D12_CLEAR_VALUE{
+            .Format       = DXGI_FORMAT_D32_FLOAT,
+            .DepthStencil = { 1, 0 }
+            });
 
-        auto skyPass = skyRenderer.addToRenderGraph(graph, framebufferRsc);
+        // passes
 
-        // mesh passes
+        auto skyPass = skyRenderer.addToRenderGraph(graph, framebuffer);
 
-        auto [meshEntry, meshExit] =
-            meshRenderer.addToRenderGraph(graph, framebufferRsc);
+        auto predepthPass = depthRenderer.addToRenderGraph(graph, depthBuffer);
 
-        // imgui pass
+        auto forwardPass = forwardRenderer.addToRenderGraph(
+            graph, framebuffer, depthBuffer);
 
-        auto imguiPass = d3d12.addImGuiToRenderGraph(graph, framebufferRsc);
+        auto imguiPass = d3d12.addImGuiToRenderGraph(graph, framebuffer);
 
-        // arcs
+        // compile
 
-        graph.addDependency(skyPass, meshEntry);
-        graph.addDependency(meshExit, imguiPass);
+        graph.addDependency(skyPass, predepthPass);
+        graph.addDependency(predepthPass, forwardPass);
+        graph.addDependency(forwardPass, imguiPass);
 
         graph.compile(
             d3d12.getDevice(),
@@ -122,42 +167,12 @@ void run()
             d3d12.getClientHeight() / 2);
         initGraph();
     }));
-    
-    std::vector<MeshRenderer::Light> lights = {
-        MeshRenderer::Light{
-            .lightPosition    = { 2, 0, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(0, 1, 2),
-            .lightAmbient     = Float3(0.01f)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { 0, -3, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(2, 0, 1),
-            .lightAmbient     = Float3(0)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { -10, -1.5, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(1, 2, 0),
-            .lightAmbient     = Float3(0)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { -10, -9, 0 },
-            .maxLightDistance = 3,
-            .lightIntensity   = Float3(7, 0, 0),
-            .lightAmbient     = Float3(0)
-        }
-    };
-
-    meshRenderer.setLights(
-        lights.data(), lights.size(), d3d12.getResourceManager(), uploader);
 
     agz::time::fps_counter_t fpsCounter;
 
     while(!d3d12.getCloseFlag())
     {
-        d3d12.startFrame(true);
+        d3d12.startFrame();
 
         if(input->isPressed(KEY_ESCAPE))
             d3d12.setCloseFlag(true);
@@ -168,7 +183,7 @@ void run()
             input->setCursorLock(!input->isCursorLocked());
         }
 
-        if(ImGui::Begin("forward", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if(ImGui::Begin("PreDepth", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
 
@@ -178,7 +193,7 @@ void run()
                 eyePos.x, eyePos.y, eyePos.z);
         }
         ImGui::End();
-
+        
         camera.setWOverH(d3d12.getFramebufferWOverH());
         camera.update({
             input->isPressed('W'),
@@ -192,14 +207,14 @@ void run()
             });
 
         skyRenderer.setCamera(camera.getPosition(), camera.getViewProj());
-        meshRenderer.setCamera(camera.getViewProj(), camera.getPosition());
+        forwardRenderer.setCamera(camera.getPosition());
 
         const Mat4 world = Mat4::right_transform::scale(Float3(0.3f));
         mesh.vsTransform.updateData(
             d3d12.getFramebufferIndex(),
             { world, world * camera.getViewProj() });
 
-        graph.setExternalResource(framebufferRsc, d3d12.getFramebuffer());
+        graph.setExternalResource(framebuffer, d3d12.getFramebuffer());
         graph.run(d3d12.getFramebufferIndex());
         graph.clearExternalResources();
 

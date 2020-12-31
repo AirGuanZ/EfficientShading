@@ -6,24 +6,7 @@ class MeshRenderer : public agz::misc::uncopyable_t
 {
 public:
 
-    struct VSTransform
-    {
-        Mat4 world;
-        Mat4 worldViewProj;
-    };
-
-    struct Mesh : ::Mesh
-    {
-        void load(
-            D3D12Context      &d3d12,
-            ResourceUploader  &uploader,
-            const std::string &model,
-            const std::string &albedo,
-            const std::string &metallic,
-            const std::string &roughness);
-
-        ConstantBuffer<VSTransform> vsTransform;
-    };
+    using Mesh = common::MeshWithTransform;
 
     struct Light
     {

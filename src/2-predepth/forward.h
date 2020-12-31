@@ -1,12 +1,10 @@
 #pragma once
 
-#include "../common/mesh.h"
+#include "./mesh.h"
 
-class MeshRenderer : public agz::misc::uncopyable_t
+class ForwardRenderer : public agz::misc::uncopyable_t
 {
 public:
-
-    using Mesh = common::MeshWithTransform;
 
     struct Light
     {
@@ -15,14 +13,14 @@ public:
         Float3 lightAmbient;   float pad1 = 0;
     };
 
-    explicit MeshRenderer(D3D12Context &d3d12);
+    explicit ForwardRenderer(D3D12Context &d3d12);
 
     rg::Pass *addToRenderGraph(
         rg::Graph    &graph,
         rg::Resource *renderTarget,
-        rg::Resource *depthStencil);
+        rg::Resource *depthBuffer);
 
-    void addToRenderQueue(const Mesh *mesh);
+    void addMesh(const Mesh *mesh);
 
     void setCamera(const Float3 &eye);
 
@@ -36,9 +34,13 @@ private:
 
     void initRootSignature();
 
-    void initPipeline(DXGI_FORMAT RTFmt, DXGI_FORMAT DSFmt);
+    void initPipeline(
+        DXGI_FORMAT renderTargetFormat,
+        DXGI_FORMAT depthBufferFormat);
 
     void initConstantBuffer();
+
+    void doForwardPass(rg::PassContext &ctx);
 
     struct PSParams
     {
@@ -46,27 +48,29 @@ private:
         int32_t lightCount = 0;
     };
 
-    ID3D12Device    *device_;
-    ResourceManager &rscMgr_;
-    int              frameCount_;
+    D3D12Context &d3d12_;
 
-    // 0: vsTransform
+    // 0: vsTransform   (b0)
     // 1: psTable
-    //      0: albedo
-    //      1: metallic
-    //      2: roughness
-    // 2: psParams
-    // 3: lightBuffer
+    //      0: albedo   (t0)
+    //      1: metallic (t1)
+    //      2: roughness(t2)
+    // 2: psParams      (b1)
+    // 3: lightBuffer   (t3)
+    // linearSampler    (s0)
     ComPtr<ID3D12RootSignature> rootSignature_;
     ComPtr<ID3D12PipelineState> pipeline_;
 
     D3D12_VIEWPORT viewport_;
     D3D12_RECT     scissor_;
 
+    rg::Resource *renderTarget_;
+    rg::Resource *depthBuffer_;
+
     std::vector<const Mesh *> meshes_;
 
     PSParams                 psParamsData_;
     ConstantBuffer<PSParams> psParams_;
 
-    Buffer lightBuffer_;
+    Buffer lights_;
 };

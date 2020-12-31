@@ -33,7 +33,7 @@ void run()
 
     // sky
 
-    SkyRenderer skyRenderer(d3d12, uploader);
+    common::SkyRenderer skyRenderer(d3d12, uploader);
 
     skyRenderer.loadSkyBox(
         "./asset/sky/1ft.jpg",
@@ -59,7 +59,7 @@ void run()
 
     // camera
 
-    Camera camera;
+    common::Camera camera;
     camera.setSpeed(0.03f);
     camera.setPosition({ 0, -4, 0 });
 
