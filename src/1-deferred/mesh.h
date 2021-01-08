@@ -15,15 +15,9 @@ public:
         Float3 lightAmbient;   float pad1 = 0;
     };
 
-    struct RenderGraphNodes
-    {
-        rg::Pass *entry = nullptr;
-        rg::Pass *exit  = nullptr;
-    };
-
     explicit MeshRenderer(D3D12Context &d3d12);
 
-    RenderGraphNodes addToRenderGraph(
+    rg::Vertex *addToRenderGraph(
         rg::Graph    &graph,
         rg::Resource *renderTarget);
 

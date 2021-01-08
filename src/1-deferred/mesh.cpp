@@ -1,6 +1,6 @@
 #include <d3dcompiler.h>
 
-#include <agz/utility/file.h>
+#include <agz-utils/file.h>
 
 #include "./mesh.h"
 
@@ -18,7 +18,7 @@ MeshRenderer::MeshRenderer(D3D12Context &d3d12)
     initConstantBuffer();
 }
 
-MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
+rg::Vertex *MeshRenderer::addToRenderGraph(
     rg::Graph    &graph,
     rg::Resource *renderTarget)
 {
@@ -101,7 +101,7 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     auto lightingPass = graph.addPass("lighting");
 
-    psTable_ = lightingPass->declareDescriptorTable(rg::Pass::GPUOnly);
+    psTable_ = lightingPass->addDescriptorTable(rg::Pass::GPUOnly);
     psTable_->addSRV(
         gbufferARsc_,
         rg::ShaderResourceType::PixelOnly,
@@ -159,7 +159,7 @@ MeshRenderer::RenderGraphNodes MeshRenderer::addToRenderGraph(
 
     graph.addDependency(gbufferPass, lightingPass);
 
-    return { gbufferPass, lightingPass };
+    return graph.addAggregate("render mesh", gbufferPass, lightingPass);
 }
 
 void MeshRenderer::addMesh(const Mesh *mesh)

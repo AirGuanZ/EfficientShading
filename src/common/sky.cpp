@@ -1,5 +1,5 @@
-#include <agz/utility/file.h>
-#include <agz/utility/image.h>
+#include <agz-utils/file.h>
+#include <agz-utils/image.h>
 
 #include "sky.h"
 

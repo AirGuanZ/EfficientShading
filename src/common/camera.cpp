@@ -5,7 +5,7 @@ namespace common
 
     Camera::Camera() noexcept
         : vertRad_(0), horiRad_(0),
-          fovDeg_(60), nearZ_(0.1f), farZ_(1000.0f), wOverH_(1),
+          fovDeg_(60), nearZ_(0.1f), farZ_(100.0f), wOverH_(1),
           speed_(0.015f), cursorSpeed_(0.003f)
     {
         
@@ -88,7 +88,17 @@ namespace common
     
         viewProj_ = view_ * proj_;
     }
-    
+
+    float Camera::getNearZ() const noexcept
+    {
+        return nearZ_;
+    }
+
+    float Camera::getFarZ() const noexcept
+    {
+        return farZ_;
+    }
+
     const Float3 &Camera::getPosition() const noexcept
     {
         return pos_;

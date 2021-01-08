@@ -73,10 +73,11 @@ float3 shadeWithSingleLight(
     float lightFactor = 1 - smoothstep(
         light.maxDistance * 0.1, light.maxDistance, dis);
 
-    float3 result = light.intensity * lightFactor * max(0, dot(wi, normal)) * brdf;
-    result += light.ambient * albedo;
-
-    return result;
+    float3 result =
+        light.intensity * max(0, dot(wi, normal)) * brdf +
+        light.ambient * albedo;
+    
+    return lightFactor * result;
 }
 
 float4 PSMain(VSOutput input) : SV_TARGET

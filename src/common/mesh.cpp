@@ -1,4 +1,4 @@
-#include <agz/utility/mesh.h>
+#include <agz-utils/mesh.h>
 
 #include "./mesh.h"
 
@@ -86,6 +86,18 @@ namespace common
         vsTransform.initializeUpload(
             d3d12.getResourceManager(), d3d12.getFramebufferCount());
     }
-
+    
+    void MeshWithViewTransform::load(
+        D3D12Context      &d3d12,
+        ResourceUploader  &uploader,
+        const std::string &model,
+        const std::string &albedo,
+        const std::string &metallic,
+        const std::string &roughness)
+    {
+        Mesh::load(d3d12, uploader, model, albedo, metallic, roughness);
+        vsTransform.initializeUpload(
+            d3d12.getResourceManager(), d3d12.getFramebufferCount());
+    }
 
 } // namespace common

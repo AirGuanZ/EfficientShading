@@ -40,6 +40,10 @@ namespace common
         void setWOverH(float wOverH) noexcept;
     
         void recalculateMatrics() noexcept;
+
+        float getNearZ() const noexcept;
+
+        float getFarZ() const noexcept;
     
         const Float3 &getPosition() const noexcept;
     

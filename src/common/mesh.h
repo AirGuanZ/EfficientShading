@@ -64,4 +64,32 @@ namespace common
         ConstantBuffer<VSTransform> vsTransform;
     };
 
+    class MeshWithViewTransform : public Mesh
+    {
+    public:
+
+        struct VSTransform
+        {
+            Mat4 world;
+            Mat4 worldView;
+            Mat4 worldViewProj;
+        };
+
+        MeshWithViewTransform() = default;
+
+        MeshWithViewTransform(MeshWithViewTransform &&) noexcept = default;
+
+        MeshWithViewTransform &operator=(MeshWithViewTransform &&) noexcept = default;
+
+        void load(
+            D3D12Context &d3d12,
+            ResourceUploader &uploader,
+            const std::string &model,
+            const std::string &albedo,
+            const std::string &metallic,
+            const std::string &roughness);
+
+        ConstantBuffer<VSTransform> vsTransform;
+    };
+
 }

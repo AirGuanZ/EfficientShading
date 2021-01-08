@@ -1,15 +1,15 @@
 ﻿CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
 
-PROJECT(PREDEPTH)
+PROJECT(CLUSTERED)
 
-SET(TargetName 2-PreDepth)
+SET(TargetName 3-Clustered)
 
 FILE(GLOB_RECURSE CPP_SRC
 		"${PROJECT_SOURCE_DIR}/*.h"
 		"${PROJECT_SOURCE_DIR}/*.cpp")
 
 FILE(GLOB_RECURSE HLSL_SRC
-		"${PROJECT_ASSET_DIR}/asset/predepth/*.hlsl")
+		"${PROJECT_ASSET_DIR}/asset/clustered/*.hlsl")
 
 ADD_EXECUTABLE(${TargetName} ${CPP_SRC} ${HLSL_SRC})
 

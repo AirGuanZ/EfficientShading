@@ -1,7 +1,7 @@
 #include <d3dcompiler.h>
 
-#include <agz/utility/file.h>
-#include <agz/utility/mesh.h>
+#include <agz-utils/file.h>
+#include <agz-utils/mesh.h>
 
 #include "mesh.h"
 

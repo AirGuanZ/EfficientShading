@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include <agz/utility/time.h>
+#include <agz-utils/time.h>
 
 #include "../common/camera.h"
 #include "../common/sky.h"
@@ -91,7 +91,7 @@ void run()
 
         // mesh passes
 
-        auto [meshEntry, meshExit] =
+        auto meshPass =
             meshRenderer.addToRenderGraph(graph, framebufferRsc);
 
         // imgui pass
@@ -100,8 +100,8 @@ void run()
 
         // arcs
 
-        graph.addDependency(skyPass, meshEntry);
-        graph.addDependency(meshExit, imguiPass);
+        graph.addDependency(skyPass, meshPass);
+        graph.addDependency(meshPass, imguiPass);
 
         graph.compile(
             d3d12.getDevice(),
@@ -128,7 +128,7 @@ void run()
             .lightPosition    = { 2, 0, 0 },
             .maxLightDistance = 15,
             .lightIntensity   = Float3(0, 1, 2),
-            .lightAmbient     = Float3(0.01f)
+            .lightAmbient     = Float3(0)
         },
         MeshRenderer::Light{
             .lightPosition    = { 0, -3, 0 },
