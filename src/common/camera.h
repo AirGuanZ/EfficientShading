@@ -46,6 +46,8 @@ namespace common
         float getFarZ() const noexcept;
     
         const Float3 &getPosition() const noexcept;
+
+        Float2 getDirection() const noexcept;
     
         const Mat4 &getView() const noexcept;
     

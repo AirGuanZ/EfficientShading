@@ -103,7 +103,12 @@ namespace common
     {
         return pos_;
     }
-    
+
+    Float2 Camera::getDirection() const noexcept
+    {
+        return { horiRad_, vertRad_ };
+    }
+
     const Mat4 &Camera::getView() const noexcept
     {
         return view_;

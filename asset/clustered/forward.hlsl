@@ -19,6 +19,7 @@ struct PSParams
     float A;
 
     float B;
+    int   enableCulling;
     float pad0[3];
 };
 
@@ -132,38 +133,37 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float  metallic  = Metallic.Sample(LinearSampler, input.texCoord);
     float  roughness = Roughness.Sample(LinearSampler, input.texCoord);
 
-    int clusterIndex = getClusterIndex(
-        input.viewPosition, input.screenPos.xy / input.screenPos.w);
-    if(clusterIndex < 0)
-        return float4(0, 0, 0, 1);
-
-    ClusterRange clusterRange = ClusterRangeBuffer[clusterIndex];
-
     float3 result = float3(0, 0, 0);
-    for(int i = clusterRange.rangeBeg; i < clusterRange.rangeEnd; ++i)
+
+    if(psParams.enableCulling == 0)
     {
-        int lightIndex = LightIndexBuffer[i];
-        
-        result += shadeWithSingleLight(
-            wo, input.worldPosition, normalize(input.worldNormal),
-            albedo, metallic, roughness, lightIndex);
+        for(int i = 0; i < psParams.lightCount; ++i)
+        {
+            int lightIndex = LightIndexBuffer[i];
+
+            result += shadeWithSingleLight(
+                wo, input.worldPosition, normalize(input.worldNormal),
+                albedo, metallic, roughness, i);
+        }
+    }
+    else
+    {
+        int clusterIndex = getClusterIndex(
+            input.viewPosition, input.screenPos.xy / input.screenPos.w);
+        if(clusterIndex < 0)
+            return float4(0, 0, 0, 1);
+
+        ClusterRange clusterRange = ClusterRangeBuffer[clusterIndex];
+
+        for(int i = clusterRange.rangeBeg; i < clusterRange.rangeEnd; ++i)
+        {
+            int lightIndex = LightIndexBuffer[i];
+
+            result += shadeWithSingleLight(
+                wo, input.worldPosition, normalize(input.worldNormal),
+                albedo, metallic, roughness, lightIndex);
+        }
     }
 
-    //float2 ndcPositionXY = input.screenPos.xy / input.screenPos.w;
-    //int xi = int(floor((0.5 * ndcPositionXY.x + 0.5) * psParams.clusterCountX));
-    //int yi = int(floor((0.5 * ndcPositionXY.y + 0.5) * psParams.clusterCountY));
-    //int zi = viewZ2i(psParams.A, psParams.B, input.viewPosition.z);
-    //result.yz *= 0.00001;
-    //
-    ////result.y = xi / 23.0;
-    ////result.z = yi / 17.0;
-    //
-    ////result.xyz += zi / 23.0;
-    //
-    //if(clusterRange.rangeEnd > clusterRange.rangeBeg &&
-    //    LightIndexBuffer[clusterRange.rangeEnd - 1] == 3)
-    //    result.y = 1;
-    //
-    //return float4(result, 1);
     return float4(pow(saturate(result), 1 / 2.2), 1);
 }

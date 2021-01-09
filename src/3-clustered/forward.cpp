@@ -34,9 +34,13 @@ rg::Pass *ForwardRenderer::addToRenderGraph(const RenderGraphInput &graphInput)
 
     psClusterTable_ = pass->addDescriptorTable(rg::Pass::GPUOnly);
     psClusterTable_->addSRV(
-        graphInput_.clusterRangeBuffer, graphInput_.clusterRangeSRV);
+        graphInput_.clusterRangeBuffer,
+        rg::ShaderResourceType::PixelOnly,
+        graphInput_.clusterRangeSRV);
     psClusterTable_->addSRV(
-        graphInput_.lightIndexBuffer, graphInput_.lightIndexSRV);
+        graphInput_.lightIndexBuffer,
+        rg::ShaderResourceType::PixelOnly,
+        graphInput_.lightIndexSRV);
 
     pass->setCallback(this, &ForwardRenderer::doForwardPass);
 
@@ -68,6 +72,11 @@ void ForwardRenderer::setLights(const Buffer *lightBuffer, size_t lightCount)
 {
     psParamsData_.lightCount = static_cast<int32_t>(lightCount);
     lightBuffer_             = lightBuffer;
+}
+
+void ForwardRenderer::setCulling(bool enabled)
+{
+    psParamsData_.enableCulling = enabled;
 }
 
 void ForwardRenderer::initRootSignature()

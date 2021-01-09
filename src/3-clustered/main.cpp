@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 
 #include <agz-utils/time.h>
 
@@ -9,7 +10,7 @@
 
 void run()
 {
-    enableDebugLayer(false);
+    enableDebugLayer(true);
 
     // d3d12 context
 
@@ -18,7 +19,7 @@ void run()
     windowDesc.clientSize = { 800, 600 };
 
     SwapChainDesc swapChainDesc;
-    swapChainDesc.imageCount = 3;
+    swapChainDesc.imageCount = 2;
 
     D3D12Context d3d12(windowDesc, swapChainDesc, 1024, true, true);
 
@@ -43,29 +44,28 @@ void run()
     std::vector<Light> lightData = {
         Light{
             .lightPosition    = { 2, 0, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(0, 1, 2),
+            .maxLightDistance = 20,
+            .lightIntensity   = Float3(0.01f, 0.01f, 0.01f),
             .lightAmbient     = Float3(0.01f)
-        },
-        Light{
-            .lightPosition    = { 0, -3, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(2, 0, 1),
-            .lightAmbient     = Float3(0)
-        },
-        Light{
-            .lightPosition    = { -10, -1.5, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(1, 2, 0),
-            .lightAmbient     = Float3(0)
-        },
-        Light{
-            .lightPosition    = { -10, -9, 0 },
-            .maxLightDistance = 3,
-            .lightIntensity   = Float3(7, 0, 0),
-            .lightAmbient     = Float3(0)
         }
     };
+
+    std::default_random_engine rng(42);
+    auto ufloat = [&](float low, float high)
+        { return std::uniform_real_distribution<float>(low, high)(rng); };
+
+    for(int i = 0; i < 200; ++i)
+    {
+        Light light;
+        light.lightPosition.x = ufloat(-16, 10);
+        light.lightPosition.y = ufloat(-10, 3);
+        light.lightPosition.z = ufloat(-7, 7);
+        light.maxLightDistance = ufloat(0.5f, 1);
+        light.lightIntensity.x = ufloat(0.5f, 1);
+        light.lightIntensity.y = ufloat(0.5f, 1);
+        light.lightIntensity.z = ufloat(0.5f, 1);
+        lightData.push_back(light);
+    }
 
     Buffer lightBuffer = d3d12.createDefaultBuffer(
         sizeof(Light) * lightData.size(), D3D12_RESOURCE_STATE_COMMON);
@@ -75,7 +75,7 @@ void run()
 
     // cluster
 
-    const Int3 CLUSTER_COUNT = { 24, 18, 24 };
+    const Int3 CLUSTER_COUNT = { 20, 15, 32 };
 
     LightCluster lightCluster(d3d12);
     lightCluster.setClusterCount(CLUSTER_COUNT);
@@ -203,6 +203,9 @@ void run()
     input->setCursorLock(
         true, d3d12.getClientWidth() / 2, d3d12.getClientHeight() / 2);
 
+    bool enableCulling = true;
+    forwardRenderer.setCulling(enableCulling);
+
     while(!d3d12.getCloseFlag())
     {
         d3d12.startFrame();
@@ -222,21 +225,30 @@ void run()
 
             const auto &eyePos = camera.getPosition();
             ImGui::Text(
-                "camera position: %f, %f, %f",
-                eyePos.x, eyePos.y, eyePos.z);
+                "camera position: %f, %f, %f", eyePos.x, eyePos.y, eyePos.z);
+
+            const auto &rad = camera.getDirection();
+            ImGui::Text(
+                "camera direction: %f, %f", rad.x, rad.y);
+
+            if(ImGui::Checkbox("enable light culling", &enableCulling))
+                forwardRenderer.setCulling(enableCulling);
         }
         ImGui::End();
 
-        camera.update({
-            input->isPressed('W'),
-            input->isPressed('A'),
-            input->isPressed('D'),
-            input->isPressed('S'),
-            input->isPressed(KEY_SPACE),
-            input->isPressed(KEY_LSHIFT),
-            static_cast<float>(input->getCursorRelativeX()),
-            static_cast<float>(input->getCursorRelativeY())
-            });
+        if(input->isCursorLocked())
+        {
+            camera.update({
+                input->isPressed('W'),
+                input->isPressed('A'),
+                input->isPressed('D'),
+                input->isPressed('S'),
+                input->isPressed(KEY_SPACE),
+                input->isPressed(KEY_LSHIFT),
+                static_cast<float>(input->getCursorRelativeX()),
+                static_cast<float>(input->getCursorRelativeY())
+                });
+        }
 
         skyRenderer.setCamera(camera.getPosition(), camera.getViewProj());
         lightCluster.setView(camera.getPosition(), camera.getView());

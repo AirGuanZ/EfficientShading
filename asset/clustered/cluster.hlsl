@@ -13,7 +13,7 @@ struct CSParams
     int clusterZCount;
     int lightCount;
 
-    int maxLightPerCluster;
+    int lightIndexCount;
     float pad0[3];
 };
 
@@ -24,6 +24,8 @@ StructuredBuffer<AABB>  ClusterAABBBuffer : register(t1);
 
 RWStructuredBuffer<ClusterRange> ClusterRangeBuffer : register(u0);
 RWStructuredBuffer<int>          LightIndexBuffer   : register(u1);
+
+RWStructuredBuffer<int> LightIndexCounterBuffer : register(u2);
 
 groupshared Light sharedLightGroup[LIGHT_BATCH_SIZE];
 
@@ -45,27 +47,12 @@ void CSMain(
         threadIdx.y * Params.clusterZCount +
         threadIdx.z;
 
-    int begInRangeBuffer = clusterIndex * Params.maxLightPerCluster;
-    int cntInRangeBuffer = 0;
+    int localLightCount = 0;
 
     AABB clusterAABB = ClusterAABBBuffer[validCluster ? clusterIndex : 0];
 
-    /*if(validCluster)
-    {
-        for(int j = 0; j < Params.lightCount; ++j)
-        {
-            if(cntInRangeBuffer >= Params.maxLightPerCluster)
-                break;
-
-            Light light = LightBuffer[j];
-            light.position = mul(float4(light.position, 1), Params.view).xyz;
-            if(isLightInAABB(light, clusterAABB))
-            {
-                LightIndexBuffer[begInRangeBuffer + cntInRangeBuffer] = j;
-                ++cntInRangeBuffer;
-            }
-        }
-    }*/
+#define MAX_LIGHTS_PER_CLUSTER 64
+    int localLightIndices[MAX_LIGHTS_PER_CLUSTER];
 
     for(int i = 0; i < Params.lightCount; i += LIGHT_BATCH_SIZE)
     {
@@ -88,14 +75,14 @@ void CSMain(
         {
             for(int j = 0; j < posEnd; ++j)
             {
-                if(cntInRangeBuffer >= Params.maxLightPerCluster)
+                if(localLightCount >= MAX_LIGHTS_PER_CLUSTER)
                     break;
 
                 Light light = sharedLightGroup[j];
                 if(isLightInAABB(light, clusterAABB))
                 {
-                    LightIndexBuffer[begInRangeBuffer + cntInRangeBuffer] = i + j;
-                    ++cntInRangeBuffer;
+                    localLightIndices[localLightCount] = i + j;
+                    ++localLightCount;
                 }
             }
         }
@@ -107,9 +94,15 @@ void CSMain(
 
     if(validCluster)
     {
+        int beg = 0;
+        InterlockedAdd(LightIndexCounterBuffer[0], localLightCount, beg);
+
         ClusterRange range;
-        range.rangeBeg = begInRangeBuffer;
-        range.rangeEnd = begInRangeBuffer + cntInRangeBuffer;
+        range.rangeBeg = beg;
+        range.rangeEnd = min(Params.lightIndexCount, beg + localLightCount);
         ClusterRangeBuffer[clusterIndex] = range;
+
+        for(int i = beg, j = 0; i < range.rangeEnd; ++i, ++j)
+            LightIndexBuffer[i] = localLightIndices[j];
     }
 }

@@ -32,6 +32,8 @@ public:
 
     void setLights(const Buffer *lightBuffer, size_t lightCount);
 
+    void setCulling(bool enabled);
+
 private:
 
     void initRootSignature();
@@ -54,8 +56,10 @@ private:
         int32_t clusterCountZ = 0;
         float   A             = 0;
 
-        float B       = 0;
-        float pad0[3] = {};
+        float B               = 0;
+        int32_t enableCulling = 1;
+
+        float pad0[2] = {};
     };
 
     D3D12Context &d3d_;

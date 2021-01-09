@@ -10,7 +10,7 @@ public:
 
     void setClusterCount(const Int3 &count);
 
-    rg::Pass *addToRenderGraph(
+    rg::Vertex *addToRenderGraph(
         rg::Graph &graph, int thread = 0, int queue = 0);
 
     rg::Resource *getClusterRangeBuffer() const;
@@ -31,18 +31,18 @@ public:
 
 private:
 
-    static constexpr int MAX_LIGHTS_PER_CLUSTER = 8;
+    static constexpr int AVG_LIGHTS_PER_CLUSTER = 8;
 
     struct CSParams
     {
         Mat4 view;
 
-        int clusterXCount      = 0;
-        int clusterYCount      = 0;
-        int clusterZCount      = 0;
-        int lightCount         = 0;
+        int32_t clusterXCount      = 0;
+        int32_t clusterYCount      = 0;
+        int32_t clusterZCount      = 0;
+        int32_t lightCount         = 0;
 
-        int maxLightPerCluster = 0;
+        int32_t lightIndexCount = 0;
         float pad0[3] = {};
     };
 
@@ -64,9 +64,13 @@ private:
 
     void initConstantBuffer();
 
+    void initZeroLightIndexCounter();
+
     void initClusterAABBBuffer(ResourceUploader &uploader);
 
     void updateCSParams();
+
+    void doClearLightIndexCounterPass(rg::PassContext &ctx);
 
     void doClusterPass(rg::PassContext &ctx);
 
@@ -78,8 +82,9 @@ private:
     // 1. lightBuffer      (t0)
     // 2. clusterAABBBuffer(t1)
     // 3. uavTable:
-    //      0: clusterIndex(u0)
-    //      1: clusterRange(u1)
+    //      0: clusterRange     (u0)
+    //      1: lightIndex       (u1)
+    //      2: lightIndexCounter(u2)
     ComPtr<ID3D12RootSignature> rootSignature_;
     ComPtr<ID3D12PipelineState> pipeline_;
 
@@ -107,6 +112,11 @@ private:
 
     const Buffer *lightBuffer_;
     size_t        lightCount_;
+
+    // upload buffer used to clear light index counter
+
+    Buffer zeroLightIndexCounter_;
+    rg::InternalResource *lightIndexCounter_;
 
     // cluster aabb
 

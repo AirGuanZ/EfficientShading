@@ -19,7 +19,7 @@ namespace common
     
         std::vector<Vertex> vertexData;
         vertexData.reserve(triangles.size() * 3);
-    
+
         for(auto &tri : triangles)
         {
             for(int i = 0; i < 3; ++i)

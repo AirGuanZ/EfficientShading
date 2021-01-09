@@ -44,11 +44,13 @@ LightCluster::LightCluster(D3D12Context &d3d)
     : d3d_(d3d),
       clusterRange_(nullptr), lightIndex_(nullptr), uavTable_(nullptr),
       nearZ_(0), farZ_(0),
-      lightBuffer_(nullptr), lightCount_(0)
+      lightBuffer_(nullptr), lightCount_(0),
+      lightIndexCounter_(nullptr)
 {
     initRootSignature();
     initPipeline();
     initConstantBuffer();
+    initZeroLightIndexCounter();
 }
 
 void LightCluster::setClusterCount(const Int3 &count)
@@ -56,10 +58,10 @@ void LightCluster::setClusterCount(const Int3 &count)
     clusterCount_ = count;
 }
 
-rg::Pass *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int queue)
+rg::Vertex *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int queue)
 {
     const int clusterCount              = clusterCount_.product();
-    const int lightIndexCount           = clusterCount * MAX_LIGHTS_PER_CLUSTER;
+    const int lightIndexCount           = clusterCount * AVG_LIGHTS_PER_CLUSTER;
     const size_t clusterRangeBufferSize = clusterCount * sizeof(ClusterRange);
     const size_t lightIndexBufferSize   = lightIndexCount * sizeof(int32_t);
 
@@ -77,13 +79,26 @@ rg::Pass *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int queue
         lightIndexBufferSize,
         D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
 
-    // create pass
+    lightIndexCounter_ = graph.addInternalResource("light index counter");
+    lightIndexCounter_->setDescription(CD3DX12_RESOURCE_DESC::Buffer(
+        4, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
 
-    auto pass = graph.addPass("cluster lights", thread, queue);
+    // light index counter pass
 
-    // declare uav descriptor table
+    auto clearLightIndexCounterPass = graph.addPass(
+        "clear light index counter", thread, queue);
 
-    uavTable_ = pass->addDescriptorTable(rg::Pass::GPUOnly);
+    clearLightIndexCounterPass->addResourceState(
+        lightIndexCounter_, D3D12_RESOURCE_STATE_COPY_DEST);
+
+    clearLightIndexCounterPass->setCallback(
+        this, &LightCluster::doClearLightIndexCounterPass);
+
+    // clustering pass
+
+    auto clusterPass = graph.addPass("cluster lights", thread, queue);
+
+    uavTable_ = clusterPass->addDescriptorTable(rg::Pass::GPUOnly);
 
     uavTable_->addUAV(clusterRange_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
         .Format        = DXGI_FORMAT_UNKNOWN,
@@ -109,11 +124,24 @@ rg::Pass *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int queue
         }
     });
 
-    // set pass callback
+    uavTable_->addUAV(lightIndexCounter_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
+        .Format        = DXGI_FORMAT_UNKNOWN,
+        .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+        .Buffer        = D3D12_BUFFER_UAV{
+            .FirstElement         = 0,
+            .NumElements          = 1,
+            .StructureByteStride  = 4,
+            .CounterOffsetInBytes = 0,
+            .Flags                = D3D12_BUFFER_UAV_FLAG_NONE
+        }
+    });
 
-    pass->setCallback(this, &LightCluster::doClusterPass);
+    clusterPass->setCallback(this, &LightCluster::doClusterPass);
 
-    return pass;
+    graph.addDependency(clearLightIndexCounterPass, clusterPass);
+
+    return graph.addAggregate(
+        "light cluster aggregate", clearLightIndexCounterPass, clusterPass);
 }
 
 rg::Resource *LightCluster::getClusterRangeBuffer() const
@@ -143,7 +171,7 @@ D3D12_SHADER_RESOURCE_VIEW_DESC LightCluster::getClusterRangeSRV() const
 
 D3D12_SHADER_RESOURCE_VIEW_DESC LightCluster::getLightIndexSRV() const
 {
-    const int indexCount = MAX_LIGHTS_PER_CLUSTER * clusterCount_.product();
+    const int indexCount = AVG_LIGHTS_PER_CLUSTER * clusterCount_.product();
     return D3D12_SHADER_RESOURCE_VIEW_DESC{
         .Format                  = DXGI_FORMAT_UNKNOWN,
         .ViewDimension           = D3D12_SRV_DIMENSION_BUFFER,
@@ -184,7 +212,7 @@ void LightCluster::setLights(const Buffer &lightBuffer, size_t lightCount)
 void LightCluster::initRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE uavRange;
-    uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 2, 0, 0);
+    uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 3, 0, 0);
 
     CD3DX12_ROOT_PARAMETER params[4];
     params[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
@@ -235,6 +263,13 @@ void LightCluster::initConstantBuffer()
 {
     csParams_.initializeUpload(
         d3d_.getResourceManager(), d3d_.getFramebufferCount());
+}
+
+void LightCluster::initZeroLightIndexCounter()
+{
+    const uint32_t data = 0;
+    zeroLightIndexCounter_.initializeUpload(d3d_.getResourceManager(), 4);
+    zeroLightIndexCounter_.updateData(0, 4, &data);
 }
 
 void LightCluster::initClusterAABBBuffer(ResourceUploader &uploader)
@@ -324,7 +359,7 @@ void LightCluster::updateCSParams()
         .clusterYCount      = clusterCount_.y,
         .clusterZCount      = clusterCount_.z,
         .lightCount         = static_cast<int>(lightCount_),
-        .maxLightPerCluster = MAX_LIGHTS_PER_CLUSTER
+        .lightIndexCount    = AVG_LIGHTS_PER_CLUSTER * clusterCount_.product()
     });
 }
 
@@ -351,4 +386,11 @@ void LightCluster::doClusterPass(rg::PassContext &ctx)
     const UINT dispatchCountZ = agz::upalign_to(clusterCount_.z, 1) / 1;
 
     ctx->Dispatch(dispatchCountX, dispatchCountY, dispatchCountZ);
+}
+
+void LightCluster::doClearLightIndexCounterPass(rg::PassContext &ctx)
+{
+    ctx->CopyResource(
+        ctx.getRawResource(lightIndexCounter_),
+        zeroLightIndexCounter_.getResource());
 }
