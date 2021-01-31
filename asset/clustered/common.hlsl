@@ -1,12 +1,7 @@
 #ifndef COMMON_HLSL
 #define COMMON_HLSL
 
-struct Light
-{
-    float3 position;  float maxDistance;
-    float3 intensity; float pad0;
-    float3 ambient;   float pad1;
-};
+#include "../common/pbs.hlsl"
 
 struct AABB
 {
@@ -25,7 +20,7 @@ float square(float x)
     return x * x;
 }
 
-bool isLightInAABB(Light light, AABB aabb)
+bool isLightInAABB(PBSLight light, AABB aabb)
 {
     float3 closest_pnt = max(aabb.lower, min(light.position, aabb.upper));
     float3 diff = closest_pnt - light.position;

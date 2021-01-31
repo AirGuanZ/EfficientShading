@@ -19,15 +19,15 @@ struct CSParams
 
 ConstantBuffer<CSParams> Params : register(b0);
 
-StructuredBuffer<Light> LightBuffer       : register(t0);
-StructuredBuffer<AABB>  ClusterAABBBuffer : register(t1);
+StructuredBuffer<PBSLight> LightBuffer       : register(t0);
+StructuredBuffer<AABB>     ClusterAABBBuffer : register(t1);
 
 RWStructuredBuffer<ClusterRange> ClusterRangeBuffer : register(u0);
 RWStructuredBuffer<int>          LightIndexBuffer   : register(u1);
 
 RWStructuredBuffer<int> LightIndexCounterBuffer : register(u2);
 
-groupshared Light sharedLightGroup[LIGHT_BATCH_SIZE];
+groupshared PBSLight sharedLightGroup[LIGHT_BATCH_SIZE];
 
 [numthreads(THREAD_GROUP_SIZE_X, THREAD_GROUP_SIZE_Y, 1)]
 void CSMain(
@@ -61,7 +61,7 @@ void CSMain(
         int posEnd = min(LIGHT_BATCH_SIZE, Params.lightCount - i);
         if(posInGroup < posEnd)
         {
-            Light light = LightBuffer[i + posInGroup];
+            PBSLight light = LightBuffer[i + posInGroup];
             light.position = mul(float4(light.position, 1), Params.view).xyz;
             sharedLightGroup[posInGroup] = light;
         }
@@ -78,7 +78,7 @@ void CSMain(
                 if(localLightCount >= MAX_LIGHTS_PER_CLUSTER)
                     break;
 
-                Light light = sharedLightGroup[j];
+                PBSLight light = sharedLightGroup[j];
                 if(isLightInAABB(light, clusterAABB))
                 {
                     localLightIndices[localLightCount] = i + j;

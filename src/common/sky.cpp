@@ -9,11 +9,9 @@ namespace common
     SkyRenderer::SkyRenderer(
         D3D12Context     &d3d12,
         ResourceUploader &uploader)
-        : d3d12_(d3d12),
-          uploader_(uploader),
-          renderTarget_(nullptr),
-          viewport_(),
-          scissor_()
+        : d3d12_(d3d12), uploader_(uploader),
+          renderTarget_(nullptr), rtvItem_(nullptr),
+          viewport_(), scissor_()
     {
     
     }
@@ -123,7 +121,7 @@ namespace common
         renderTarget_ = renderTarget;
     
         auto pass = graph.addPass("render sky box");
-        pass->addRTV(renderTarget, RTVDesc);
+        rtvItem_ = pass->addRTV(renderTarget, RTVDesc);
         pass->setCallback([this](rg::PassContext &ctx)
         {
             doSkyPass(ctx);
@@ -180,14 +178,14 @@ namespace common
         CD3DX12_ROOT_DESCRIPTOR_TABLE table;
         table.Init(1, &descRange);
     
-        RootSignatureBuilder builder(d3d12_.getDevice());
+        RootSignatureBuilder builder;
         builder.addFlags(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
         builder.addParameterCBV(b0, D3D12_SHADER_VISIBILITY_VERTEX);
         builder.addParameter(table, D3D12_SHADER_VISIBILITY_PIXEL);
         builder.addStaticSampler(
             s0, D3D12_SHADER_VISIBILITY_PIXEL, D3D12_FILTER_MIN_MAG_MIP_LINEAR);
     
-        rootSignature_ = builder.build();
+        rootSignature_ = builder.build(d3d12_.getDevice());
     }
     
     void SkyRenderer::initPipeline(DXGI_FORMAT RTFmt)
@@ -198,7 +196,7 @@ namespace common
         const auto VSSrc = agz::file::read_txt_file("./asset/common/sky_vs.hlsl");
         const auto PSSrc = agz::file::read_txt_file("./asset/common/sky_ps.hlsl");
     
-        PipelineBuilder builder(d3d12_.getDevice());
+        PipelineBuilder builder;
         builder.addInputElement({
             "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
             0, offsetof(Vertex, position),
@@ -212,7 +210,7 @@ namespace common
         builder.setRootSignature(rootSignature_);
         builder.setCullMode(D3D12_CULL_MODE_BACK, true);
     
-        pipeline_ = builder.build();
+        pipeline_ = builder.build(d3d12_.getDevice());
     }
     
     void SkyRenderer::initConstantBuffer()
@@ -229,7 +227,7 @@ namespace common
     
         vsTransform_.updateData(ctx.getFrameIndex(), { eye_, 0, viewProj_ });
     
-        auto RTV = ctx.getDescriptor(renderTarget_).getCPUHandle();
+        auto RTV = ctx.getDescriptor(rtvItem_).getCPUHandle();
         ctx->OMSetRenderTargets(1, &RTV, false, nullptr);
     
         ctx->SetPipelineState(pipeline_.Get());

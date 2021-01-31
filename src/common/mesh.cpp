@@ -5,6 +5,40 @@
 namespace common
 {
 
+    void SimpleMesh::load(
+        D3D12Context      &d3d12,
+        ResourceUploader  &uploader,
+        const std::string &model)
+    {
+        // vertices
+
+        const auto triangles = agz::mesh::load_from_file(model);
+
+        std::vector<Vertex> vertexData;
+        vertexData.reserve(triangles.size() * 3);
+
+        for(auto &tri : triangles)
+        {
+            for(int i = 0; i < 3; ++i)
+            {
+                vertexData.push_back({
+                    tri.vertices[i].position,
+                    tri.vertices[i].normal,
+                });
+            }
+        }
+
+        vertexBuffer.initializeDefault(
+            d3d12.getResourceManager(),
+            vertexData.size(),
+            D3D12_RESOURCE_STATE_COMMON);
+
+        uploader.upload(
+            vertexBuffer, vertexData.data(), vertexData.size());
+
+        uploader.submitAndSync();
+    }
+
     void Mesh::load(
         D3D12Context      &d3d12,
         ResourceUploader  &uploader,

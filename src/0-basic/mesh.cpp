@@ -25,12 +25,8 @@ rg::Pass *MeshRenderer::addToRenderGraph(
         renderTarget->getDescription().Format,
         depthStencil->getDescription().Format);
     
-    const auto &RTDesc = renderTarget->getDescription();
-
-    viewport_ = CD3DX12_VIEWPORT(
-        0.0f, 0.0f, float(RTDesc.Width), float(RTDesc.Height));
-    scissor_  = CD3DX12_RECT(
-        0, 0, LONG(RTDesc.Width), LONG(RTDesc.Height));
+    viewport_ = renderTarget->getDefaultViewport();
+    scissor_ = renderTarget->getDefaultScissor();
 
     const D3D12_RENDER_TARGET_VIEW_DESC RTVDesc = {
         .Format        = DXGI_FORMAT_UNKNOWN,
@@ -123,7 +119,7 @@ void MeshRenderer::initRootSignature()
     CD3DX12_ROOT_DESCRIPTOR_TABLE psTable;
     psTable.Init(1, &psTableRange);
 
-    RootSignatureBuilder builder(device_);
+    RootSignatureBuilder builder;
     builder.addParameterCBV(b0,   D3D12_SHADER_VISIBILITY_VERTEX);
     builder.addParameter(psTable, D3D12_SHADER_VISIBILITY_PIXEL);
     builder.addParameterCBV(b1,   D3D12_SHADER_VISIBILITY_PIXEL);
@@ -138,7 +134,7 @@ void MeshRenderer::initRootSignature()
     builder.addFlags(
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    rootSignature_ = builder.build();
+    rootSignature_ = builder.build(device_);
 }
 
 void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt, DXGI_FORMAT DSFmt)
@@ -164,7 +160,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt, DXGI_FORMAT DSFmt)
         .entry      = "PSMain"
     });
 
-    PipelineBuilder builder(device_);
+    PipelineBuilder builder;
     builder.addInputElement({
         "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
         0, offsetof(Mesh::Vertex, position),
@@ -190,7 +186,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt, DXGI_FORMAT DSFmt)
     builder.setCullMode(D3D12_CULL_MODE_BACK, false);
     builder.setDepthTest(true, true);
 
-    pipeline_ = builder.build();
+    pipeline_ = builder.build(device_);
 }
 
 void MeshRenderer::initConstantBuffer()

@@ -12,8 +12,8 @@ namespace
         const Float3 &D,
         const Float2 &scrCoord)
     {
-        const Float3 AB = lerp(A, B, scrCoord.x);//.normalize();
-        const Float3 CD = lerp(C, D, scrCoord.x);//.normalize();
+        const Float3 AB = lerp(A, B, scrCoord.x);
+        const Float3 CD = lerp(C, D, scrCoord.x);
         return lerp(CD, AB, scrCoord.y).normalize();
     }
 
@@ -98,7 +98,7 @@ rg::Vertex *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int que
 
     auto clusterPass = graph.addPass("cluster lights", thread, queue);
 
-    uavTable_ = clusterPass->addDescriptorTable(rg::Pass::GPUOnly);
+    uavTable_ = clusterPass->addDescriptorTable(false, true);
 
     uavTable_->addUAV(clusterRange_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
         .Format        = DXGI_FORMAT_UNKNOWN,
@@ -220,11 +220,11 @@ void LightCluster::initRootSignature()
     params[2].InitAsShaderResourceView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
     params[3].InitAsDescriptorTable(1, &uavRange, D3D12_SHADER_VISIBILITY_ALL);
 
-    RootSignatureBuilder builder(d3d_.getDevice());
+    RootSignatureBuilder builder;
     for(auto &p : params)
         builder.addParameter(p);
 
-    rootSignature_ = builder.build();
+    rootSignature_ = builder.build(d3d_.getDevice());
 }
 
 void LightCluster::initPipeline()

@@ -32,7 +32,7 @@ rg::Pass *ForwardRenderer::addToRenderGraph(const RenderGraphInput &graphInput)
         .Texture2D     = { 0 }
         });
 
-    psClusterTable_ = pass->addDescriptorTable(rg::Pass::GPUOnly);
+    psClusterTable_ = pass->addDescriptorTable(false, true);
     psClusterTable_->addSRV(
         graphInput_.clusterRangeBuffer,
         rg::ShaderResourceType::PixelOnly,
@@ -94,7 +94,7 @@ void ForwardRenderer::initRootSignature()
     params[3].InitAsDescriptorTable(1, &psMeshTable, D3D12_SHADER_VISIBILITY_PIXEL);
     params[4].InitAsDescriptorTable(1, &psClusterTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    RootSignatureBuilder builder(d3d_.getDevice());
+    RootSignatureBuilder builder;
     builder.addParameters(params);
 
     builder.addStaticSampler(
@@ -104,7 +104,7 @@ void ForwardRenderer::initRootSignature()
 
     builder.addFlags(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    rootSignature_ = builder.build();
+    rootSignature_ = builder.build(d3d_.getDevice());
 }
 
 void ForwardRenderer::initConstantBuffer()
@@ -115,12 +115,8 @@ void ForwardRenderer::initConstantBuffer()
 
 void ForwardRenderer::initViewportAndScissor()
 {
-    const auto &RTDesc = graphInput_.renderTarget->getDescription();
-
-    viewport_ = CD3DX12_VIEWPORT(
-        0.0f, 0.0f, float(RTDesc.Width), float(RTDesc.Height));
-    scissor_ = CD3DX12_RECT(
-        0, 0, LONG(RTDesc.Width), LONG(RTDesc.Height));
+    viewport_ = graphInput_.renderTarget->getDefaultViewport();
+    scissor_  = graphInput_.renderTarget->getDefaultScissor();
 }
 
 void ForwardRenderer::initPipeline()
@@ -145,7 +141,7 @@ void ForwardRenderer::initPipeline()
             .entry      = "PSMain"
         });
 
-    PipelineBuilder builder(d3d_.getDevice());
+    PipelineBuilder builder;
 
     builder.addInputElement({
         "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
@@ -177,7 +173,7 @@ void ForwardRenderer::initPipeline()
     builder.setVertexShader(vs);
     builder.setPixelShader(ps);
 
-    pipeline_ = builder.build();
+    pipeline_ = builder.build(d3d_.getDevice());
 }
 
 void ForwardRenderer::doForwardPass(rg::PassContext &ctx)

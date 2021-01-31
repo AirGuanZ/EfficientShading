@@ -1,20 +1,21 @@
 #include <iostream>
 
+#include <agz-utils/graphics_api.h>
+#include <agz-utils/misc.h>
 #include <agz-utils/time.h>
 
 #include "../common/camera.h"
 #include "../common/sky.h"
-
-#include "./mesh.h"
+#include "./hierarchy.h"
 
 void run()
 {
-    enableDebugLayerInDebugMode(false);
+    enableDebugLayerInDebugMode(true);
 
     // d3d12 context
 
     WindowDesc windowDesc;
-    windowDesc.title      = L"deferred";
+    windowDesc.title      = L"hierarchy-z";
     windowDesc.clientSize = { 800, 600 };
 
     SwapChainDesc swapChainDesc;
@@ -42,19 +43,15 @@ void run()
         "./asset/sky/1lt.jpg",
         "./asset/sky/1rt.jpg");
 
-    // mesh
+    // hierarchy-z
 
-    MeshRenderer meshRenderer(d3d12);
+    HierarchyZGenerator hiZ(d3d12);
 
-    MeshRenderer::Mesh mesh;
-    mesh.load(
-        d3d12, uploader,
-        "./asset/mesh/eglise/mesh.obj",
-        "./asset/mesh/eglise/albedo.png",
-        "./asset/mesh/eglise/metallic.png",
-        "./asset/mesh/eglise/roughness.png");
-
-    meshRenderer.addMesh(&mesh);
+    Mesh mesh;
+    mesh.load(d3d12, uploader, "./asset/mesh/eglise/mesh.obj");
+    mesh.vsTransform.initializeUpload(
+        d3d12.getResourceManager(), d3d12.getFramebufferCount());
+    hiZ.addMesh(&mesh);
 
     // camera
 
@@ -85,24 +82,16 @@ void run()
         framebufferRsc->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
         framebufferRsc->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
 
-        // sky pass
+        // passes
 
         auto skyPass = skyRenderer.addToRenderGraph(graph, framebufferRsc);
 
-        // mesh passes
-
-        auto meshPass =
-            meshRenderer.addToRenderGraph(graph, framebufferRsc);
-
-        // imgui pass
+        auto hiZPass = hiZ.addToRenderGraph(&graph, framebufferRsc);
 
         auto imguiPass = d3d12.addImGuiToRenderGraph(graph, framebufferRsc);
 
-        // arcs
-
-        graph.addDependency(skyPass, meshPass);
-        graph.addDependency(meshPass, imguiPass);
-
+        graph.addDependency(skyPass, hiZPass);
+        graph.addDependency(hiZPass, imguiPass);
         graph.compile(
             d3d12.getDevice(),
             d3d12.getResourceManager(),
@@ -122,53 +111,17 @@ void run()
             d3d12.getClientHeight() / 2);
         initGraph();
     }));
-    
-    std::vector<MeshRenderer::Light> lights = {
-        MeshRenderer::Light{
-            .lightPosition    = { 2, 0, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(0, 1, 2),
-            .lightAmbient     = Float3(0)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { 0, -3, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(2, 0, 1),
-            .lightAmbient     = Float3(0)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { -10, -1.5, 0 },
-            .maxLightDistance = 15,
-            .lightIntensity   = Float3(1, 2, 0),
-            .lightAmbient     = Float3(0)
-        },
-        MeshRenderer::Light{
-            .lightPosition    = { -10, -9, 0 },
-            .maxLightDistance = 3,
-            .lightIntensity   = Float3(7, 0, 0),
-            .lightAmbient     = Float3(0)
-        }
-    };
-
-    meshRenderer.setLights(
-        lights.data(), lights.size(), d3d12.getResourceManager(), uploader);
 
     agz::time::fps_counter_t fpsCounter;
 
     while(!d3d12.getCloseFlag())
     {
-        d3d12.startFrame(true);
+        d3d12.startFrame();
 
         if(input->isPressed(KEY_ESCAPE))
             d3d12.setCloseFlag(true);
 
-        if(d3d12.getInput()->isDown(KEY_LCTRL))
-        {
-            input->showCursor(!input->isCursorVisible());
-            input->setCursorLock(!input->isCursorLocked());
-        }
-
-        if(ImGui::Begin("forward", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if(ImGui::Begin("hierarchy-z", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
             ImGui::Text(
@@ -189,12 +142,11 @@ void run()
             });
 
         skyRenderer.setCamera(camera.getPosition(), camera.getViewProj());
-        meshRenderer.setCamera(camera.getViewProj(), camera.getPosition());
 
         const Mat4 world = Mat4::right_transform::scale(Float3(0.3f));
+        mesh.vsTransformData = { world, world * camera.getViewProj() };
         mesh.vsTransform.updateData(
-            d3d12.getFramebufferIndex(),
-            { world, world * camera.getViewProj() });
+            d3d12.getFramebufferIndex(), mesh.vsTransformData);
 
         graph.setExternalResource(framebufferRsc, d3d12.getFramebuffer());
         graph.run(d3d12.getFramebufferIndex());

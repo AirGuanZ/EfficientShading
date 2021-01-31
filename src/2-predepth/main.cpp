@@ -9,7 +9,7 @@
 
 void run()
 {
-    enableDebugLayer(false);
+    enableDebugLayerInDebugMode(false);
 
     // d3d12 context
 
@@ -186,11 +186,8 @@ void run()
         if(ImGui::Begin("PreDepth", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
-
-            const auto &eyePos = camera.getPosition();
             ImGui::Text(
-                "camera position: %f, %f, %f",
-                eyePos.x, eyePos.y, eyePos.z);
+                "camera position: %s", camera.getPosition().to_string().c_str());
         }
         ImGui::End();
         

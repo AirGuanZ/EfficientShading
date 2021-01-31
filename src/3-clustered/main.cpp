@@ -10,7 +10,7 @@
 
 void run()
 {
-    enableDebugLayer(true);
+    enableDebugLayerInDebugMode(true);
 
     // d3d12 context
 
@@ -43,24 +43,24 @@ void run()
 
     std::vector<Light> lightData = {
         Light{
-            .lightPosition    = { 2, 0, 0 },
-            .maxLightDistance = 20,
+            .lightPosition    = { 0, 0, 0 },
+            .maxLightDistance = 40,
             .lightIntensity   = Float3(0.01f, 0.01f, 0.01f),
-            .lightAmbient     = Float3(0.01f)
+            .lightAmbient     = Float3(0)
         }
     };
 
-    std::default_random_engine rng(42);
+    std::default_random_engine rng(std::random_device{}() + 1);
     auto ufloat = [&](float low, float high)
         { return std::uniform_real_distribution<float>(low, high)(rng); };
 
-    for(int i = 0; i < 200; ++i)
+    while(lightData.size() < 1024)
     {
         Light light;
-        light.lightPosition.x = ufloat(-16, 10);
-        light.lightPosition.y = ufloat(-10, 3);
-        light.lightPosition.z = ufloat(-7, 7);
-        light.maxLightDistance = ufloat(0.5f, 1);
+        light.lightPosition.x  = ufloat(-16, 8);
+        light.lightPosition.y  = ufloat(-9, 2);
+        light.lightPosition.z  = ufloat(-6, 6);
+        light.maxLightDistance = ufloat(0.5f, 1.5f);
         light.lightIntensity.x = ufloat(0.5f, 1);
         light.lightIntensity.y = ufloat(0.5f, 1);
         light.lightIntensity.z = ufloat(0.5f, 1);
@@ -210,7 +210,7 @@ void run()
     {
         d3d12.startFrame();
 
-        if(input->isPressed(KEY_ESCAPE))
+        if(input->isDown(KEY_ESCAPE))
             d3d12.setCloseFlag(true);
 
         if(d3d12.getInput()->isDown(KEY_LCTRL))
@@ -222,15 +222,8 @@ void run()
         if(ImGui::Begin("Clustered", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
-
-            const auto &eyePos = camera.getPosition();
             ImGui::Text(
-                "camera position: %f, %f, %f", eyePos.x, eyePos.y, eyePos.z);
-
-            const auto &rad = camera.getDirection();
-            ImGui::Text(
-                "camera direction: %f, %f", rad.x, rad.y);
-
+                "camera position: %s", camera.getPosition().to_string().c_str());
             if(ImGui::Checkbox("enable light culling", &enableCulling))
                 forwardRenderer.setCulling(enableCulling);
         }

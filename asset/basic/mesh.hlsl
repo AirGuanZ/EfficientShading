@@ -12,13 +12,6 @@ cbuffer PSParams : register(b1)
     int LightCount;
 };
 
-struct Light
-{
-    float3 position;  float maxDistance;
-    float3 intensity; float pad0;
-    float3 ambient;   float pad1;
-};
-
 struct VSInput
 {
     float3 position : POSITION;
@@ -38,7 +31,7 @@ Texture2D<float3> Albedo    : register(t0);
 Texture2D<float>  Metallic  : register(t1);
 Texture2D<float>  Roughness : register(t2);
 
-StructuredBuffer<Light> Lights : register(t3);
+StructuredBuffer<PBSLight> Lights : register(t3);
 
 SamplerState LinearSampler : register(s0);
 
@@ -52,34 +45,6 @@ VSOutput VSMain(VSInput input)
     return output;
 }
 
-float3 shadeWithSingleLight(
-    float3 wo,
-    float3 position,
-    float3 normal,
-    float3 albedo,
-    float  metallic,
-    float  roughness,
-    int    lightIndex)
-{
-    Light light = Lights[lightIndex];
-
-    float dis = distance(light.position, position);
-    float3 wi = normalize(light.position - position);
-
-    float3 brdf = PBSShade(
-        wi, wo, normal,
-        albedo, metallic, roughness, 0.04);
-
-    float lightFactor = 1 - smoothstep(
-        light.maxDistance * 0.1, light.maxDistance, dis);
-
-    float3 result =
-        light.intensity * max(0, dot(wi, normal)) * brdf +
-        light.ambient * albedo;
-    
-    return lightFactor * result;
-}
-
 float4 PSMain(VSOutput input) : SV_TARGET
 {
     float3 wo = normalize(Eye - input.worldPosition);
@@ -91,9 +56,9 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float3 result = float3(0, 0, 0);
     for(int i = 0; i < LightCount; ++i)
     {
-        result += shadeWithSingleLight(
+        result += PBSWithSingleLight(
             wo, input.worldPosition, normalize(input.worldNormal),
-            albedo, metallic, roughness, i);
+            albedo, metallic, roughness, Lights[i]);
     }
 
     return float4(pow(saturate(result), 1 / 2.2), 1);

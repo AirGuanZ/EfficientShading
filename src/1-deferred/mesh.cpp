@@ -27,8 +27,8 @@ rg::Vertex *MeshRenderer::addToRenderGraph(
     const UINT64 w = renderTarget->getDescription().Width;
     const UINT   h = renderTarget->getDescription().Height;
     
-    viewport_ = CD3DX12_VIEWPORT(0.0f, 0.0f, float(w), float(h));
-    scissor_  = CD3DX12_RECT(0, 0, LONG(w), LONG(h));
+    viewport_ = renderTarget->getDefaultViewport();
+    scissor_ = renderTarget->getDefaultScissor();
 
     // internal resources
 
@@ -101,7 +101,7 @@ rg::Vertex *MeshRenderer::addToRenderGraph(
 
     auto lightingPass = graph.addPass("lighting");
 
-    psTable_ = lightingPass->addDescriptorTable(rg::Pass::GPUOnly);
+    psTable_ = lightingPass->addDescriptorTable(false, true);
     psTable_->addSRV(
         gbufferARsc_,
         rg::ShaderResourceType::PixelOnly,
@@ -198,7 +198,7 @@ void MeshRenderer::initRootSignature()
         params[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
         params[1].InitAsDescriptorTable(1, &psTableRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
-        RootSignatureBuilder builder(d3d12_.getDevice());
+        RootSignatureBuilder builder;
         for(auto &p : params)
             builder.addParameter(p);
 
@@ -208,7 +208,7 @@ void MeshRenderer::initRootSignature()
         builder.addFlags(
             D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-        gbufferRootSignature_ = builder.build();
+        gbufferRootSignature_ = builder.build(d3d12_.getDevice());
     }
 
     // lighting root signature
@@ -222,14 +222,14 @@ void MeshRenderer::initRootSignature()
         params[1].InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_PIXEL);
         params[2].InitAsDescriptorTable(1, &psTableRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
-        RootSignatureBuilder builder(d3d12_.getDevice());
+        RootSignatureBuilder builder;
         for(auto &p : params)
             builder.addParameter(p);
 
         builder.addStaticSampler(
             s0, D3D12_SHADER_VISIBILITY_PIXEL, D3D12_FILTER_MIN_MAG_MIP_POINT);
 
-        lightingRootSignature_ = builder.build();
+        lightingRootSignature_ = builder.build(d3d12_.getDevice());
     }
 }
 
@@ -243,7 +243,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt)
         const std::string shader =
             agz::file::read_txt_file("./asset/deferred/gbuffer.hlsl");
 
-        PipelineBuilder builder(d3d12_.getDevice());
+        PipelineBuilder builder;
         builder.addInputElement({
             "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
             0, offsetof(Mesh::Vertex, position),
@@ -283,7 +283,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt)
         builder.setRenderTargetFormat(0, DXGI_FORMAT_R32G32B32A32_FLOAT);
         builder.setRenderTargetFormat(1, DXGI_FORMAT_R8G8B8A8_UNORM);
 
-        gbufferPipeline_ = builder.build();
+        gbufferPipeline_ = builder.build(d3d12_.getDevice());
     }
 
     // lighting pipeline
@@ -292,7 +292,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt)
         const std::string shader =
             agz::file::read_txt_file("./asset/deferred/lighting.hlsl");
 
-        PipelineBuilder builder(d3d12_.getDevice());
+        PipelineBuilder builder;
 
         builder.setCullMode(D3D12_CULL_MODE_NONE);
         builder.setDepthTest(false, false);
@@ -315,7 +315,7 @@ void MeshRenderer::initPipeline(DXGI_FORMAT RTFmt)
         builder.setRenderTargetCount(1);
         builder.setRenderTargetFormat(0, RTFmt);
 
-        lightingPipeline_ = builder.build();
+        lightingPipeline_ = builder.build(d3d12_.getDevice());
     }
 }
 

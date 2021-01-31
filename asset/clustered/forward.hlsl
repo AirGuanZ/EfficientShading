@@ -26,7 +26,7 @@ struct PSParams
 ConstantBuffer<VSTransform> vsTransform : register(b0);
 ConstantBuffer<PSParams>    psParams    : register(b1);
 
-StructuredBuffer<Light> Lights : register(t0);
+StructuredBuffer<PBSLight> Lights : register(t0);
 
 Texture2D<float3> Albedo    : register(t1);
 Texture2D<float>  Metallic  : register(t2);
@@ -70,34 +70,6 @@ VSOutput VSMain(VSInput input)
     return output;
 }
 
-float3 shadeWithSingleLight(
-    float3 wo,
-    float3 position,
-    float3 normal,
-    float3 albedo,
-    float  metallic,
-    float  roughness,
-    int    lightIndex)
-{
-    Light light = Lights[lightIndex];
-
-    float dis = distance(light.position, position);
-    float3 wi = normalize(light.position - position);
-
-    float3 brdf = PBSShade(
-        wi, wo, normal,
-        albedo, metallic, roughness, 0.04);
-
-    float lightFactor = 1 - smoothstep(
-        light.maxDistance * 0.1, light.maxDistance, dis);
-
-    float3 result =
-        light.intensity * max(0, dot(wi, normal)) * brdf +
-        light.ambient * albedo;
-    
-    return lightFactor * result;
-}
-
 int viewZ2i(float A, float B, float z)
 {
     return int(floor(log(z) * A - B));
@@ -139,11 +111,9 @@ float4 PSMain(VSOutput input) : SV_TARGET
     {
         for(int i = 0; i < psParams.lightCount; ++i)
         {
-            int lightIndex = LightIndexBuffer[i];
-
-            result += shadeWithSingleLight(
+            result += PBSWithSingleLight(
                 wo, input.worldPosition, normalize(input.worldNormal),
-                albedo, metallic, roughness, i);
+                albedo, metallic, roughness, Lights[i]);
         }
     }
     else
@@ -158,10 +128,9 @@ float4 PSMain(VSOutput input) : SV_TARGET
         for(int i = clusterRange.rangeBeg; i < clusterRange.rangeEnd; ++i)
         {
             int lightIndex = LightIndexBuffer[i];
-
-            result += shadeWithSingleLight(
+            result += PBSWithSingleLight(
                 wo, input.worldPosition, normalize(input.worldNormal),
-                albedo, metallic, roughness, lightIndex);
+                albedo, metallic, roughness, Lights[lightIndex]);
         }
     }
 

@@ -27,11 +27,8 @@ rg::Pass *ForwardRenderer::addToRenderGraph(
     renderTarget_ = renderTarget;
     depthBuffer_ = depthBuffer;
 
-    const auto &RTDesc = renderTarget->getDescription();
-    viewport_ = CD3DX12_VIEWPORT(
-        0.0f, 0.0f, float(RTDesc.Width), float(RTDesc.Height));
-    scissor_ = CD3DX12_RECT(
-        0, 0, LONG(RTDesc.Width), LONG(RTDesc.Height));
+    viewport_ = renderTarget->getDefaultViewport();
+    scissor_ = renderTarget_->getDefaultScissor();
 
     auto pass = graph.addPass("forward");
     pass->addRTV(renderTarget, D3D12_RENDER_TARGET_VIEW_DESC{
@@ -90,7 +87,7 @@ void ForwardRenderer::initRootSignature()
     params[2].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
     params[3].InitAsShaderResourceView(3, 0, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    RootSignatureBuilder builder(d3d12_.getDevice());
+    RootSignatureBuilder builder;
     for(auto &p : params)
         builder.addParameter(p);
 
@@ -99,7 +96,7 @@ void ForwardRenderer::initRootSignature()
     builder.addFlags(
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    rootSignature_ = builder.build();
+    rootSignature_ = builder.build(d3d12_.getDevice());
 }
 
 void ForwardRenderer::initPipeline(
@@ -126,7 +123,7 @@ void ForwardRenderer::initPipeline(
             .entry      = "PSMain"
         });
 
-    PipelineBuilder builder(d3d12_.getDevice());
+    PipelineBuilder builder;
 
     builder.addInputElement({
         "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
@@ -157,7 +154,7 @@ void ForwardRenderer::initPipeline(
     builder.setVertexShader(vs);
     builder.setPixelShader(ps);
 
-    pipeline_ = builder.build();
+    pipeline_ = builder.build(d3d12_.getDevice());
 }
 
 void ForwardRenderer::initConstantBuffer()

@@ -18,11 +18,8 @@ rg::Pass *PreDepthRenderer::addToRenderGraph(
 
     depthBuffer_ = depthBuffer;
 
-    const UINT64 w = depthBuffer->getDescription().Width;
-    const UINT   h = depthBuffer->getDescription().Height;
-
-    viewport_ = CD3DX12_VIEWPORT(0.0f, 0.0f, float(w), float(h));
-    scissor_  = CD3DX12_RECT(0, 0, LONG(w), LONG(h));
+    viewport_ = depthBuffer_->getDefaultViewport();
+    scissor_ = depthBuffer_->getDefaultScissor();
 
     auto pass = graph.addPass("predepth");
     pass->addDSV(depthBuffer, D3D12_DEPTH_STENCIL_VIEW_DESC{
@@ -43,10 +40,10 @@ void PreDepthRenderer::addMesh(const Mesh *mesh)
 
 void PreDepthRenderer::initRootSignature()
 {
-    RootSignatureBuilder builder(d3d12_.getDevice());
+    RootSignatureBuilder builder;
     builder.addParameterCBV(b0, D3D12_SHADER_VISIBILITY_VERTEX);
     builder.addFlags(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-    rootSignature_ = builder.build();
+    rootSignature_ = builder.build(d3d12_.getDevice());
 }
 
 void PreDepthRenderer::initPipeline(DXGI_FORMAT depthBufferFormat)
@@ -72,7 +69,7 @@ void PreDepthRenderer::initPipeline(DXGI_FORMAT depthBufferFormat)
             .entry      = "PSMain"
         });
 
-    PipelineBuilder builder(d3d12_.getDevice());
+    PipelineBuilder builder;
     builder.addInputElement({
         "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,
         0, offsetof(Mesh::Vertex, position),
@@ -90,7 +87,7 @@ void PreDepthRenderer::initPipeline(DXGI_FORMAT depthBufferFormat)
     builder.setDepthStencilFormat(depthBufferFormat);
     builder.setRenderTargetCount(0);
 
-    pipeline_ = builder.build();
+    pipeline_ = builder.build(d3d12_.getDevice());
 }
 
 void PreDepthRenderer::doPreDepthPass(rg::PassContext &ctx)

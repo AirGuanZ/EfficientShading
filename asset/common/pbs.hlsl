@@ -3,6 +3,13 @@
 
 #define PBS_PI 3.1415926
 
+struct PBSLight
+{
+    float3 position;  float maxDistance;
+    float3 intensity; float pad0;
+    float3 ambient;   float pad1;
+};
+
 // BRDF for simple PBS:
 //    (1 - metallic) * diffuse + lerp(F0_dielectric, F0_metal, metallic) * D * G / (4 * cos<I, N> * cos<O, N>)
 
@@ -66,6 +73,32 @@ float3 PBSShade(
     }
 
     return result;
+}
+
+float3 PBSWithSingleLight(
+    float3   wo,
+    float3   position,
+    float3   normal,
+    float3   albedo,
+    float    metallic,
+    float    roughness,
+    PBSLight light)
+{
+    float dis = distance(light.position, position);
+    float3 wi = normalize(light.position - position);
+
+    float3 brdf = PBSShade(
+        wi, wo, normal,
+        albedo, metallic, roughness, 0.04);
+
+    float lightFactor = 1 - smoothstep(
+        light.maxDistance * 0.1, light.maxDistance, dis);
+
+    float3 result =
+        light.intensity * max(0, dot(wi, normal)) * brdf +
+        light.ambient * albedo;
+
+    return lightFactor * result;
 }
 
 #endif // #ifndef SHADER_PBS_HLSL

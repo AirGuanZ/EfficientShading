@@ -1,17 +1,13 @@
 #pragma once
 
+#include "../common/light.h"
 #include "./mesh.h"
 
 class ForwardRenderer : public agz::misc::uncopyable_t
 {
 public:
 
-    struct Light
-    {
-        Float3 lightPosition;  float maxLightDistance = 0;
-        Float3 lightIntensity; float pad0 = 0;
-        Float3 lightAmbient;   float pad1 = 0;
-    };
+    using Light = common::PBSLight;
 
     explicit ForwardRenderer(D3D12Context &d3d12);
 

@@ -5,6 +5,30 @@
 namespace common
 {
 
+    class SimpleMesh : public agz::misc::uncopyable_t
+    {
+    public:
+
+        struct Vertex
+        {
+            Float3 position;
+            Float3 normal;
+        };
+
+        SimpleMesh() = default;
+
+        SimpleMesh(SimpleMesh && other) noexcept = default;
+
+        SimpleMesh &operator=(SimpleMesh && other) noexcept = default;
+
+        void load(
+            D3D12Context      &d3d12,
+            ResourceUploader  &uploader,
+            const std::string &model);
+
+        VertexBuffer<Vertex> vertexBuffer;
+    };
+
     class Mesh : public agz::misc::uncopyable_t
     {
     public:
