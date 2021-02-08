@@ -84,6 +84,7 @@ rg::Vertex *MeshRenderer::addToRenderGraph(
         });
     gbufferPass->addDSV(
         gbufferDepthRsc_,
+        rg::DepthStencilType::ReadAndWrite,
         D3D12_DEPTH_STENCIL_VIEW_DESC{
             .Format        = DXGI_FORMAT_D32_FLOAT,
             .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,

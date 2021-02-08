@@ -91,6 +91,7 @@ void run()
         renderTargetRsc->setDescription(d3d12.getFramebuffer()->GetDesc());
         renderTargetRsc->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
         renderTargetRsc->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
+        renderTargetRsc->setPerFrame();
 
         depthStencilRsc = graph.addInternalResource("depth stencil buffer");
         depthStencilRsc->setDescription(CD3DX12_RESOURCE_DESC::Tex2D(
@@ -118,7 +119,7 @@ void run()
         clearPass->addRTV(
             renderTargetRsc, RTVDesc);
         clearPass->addDSV(
-            depthStencilRsc, DSVDesc);
+            depthStencilRsc, rg::DepthStencilType::ReadAndWrite, DSVDesc);
         clearPass->setCallback([&](rg::PassContext &ctx)
         {
             const float background[4] = { 0, 1, 1, 0 };
@@ -158,6 +159,12 @@ void run()
             d3d12.getResourceManager(),
             d3d12.getDescriptorAllocator(),
             { d3d12.getGraphicsQueue() });
+
+        for(int i = 0; i < d3d12.getFramebufferCount(); ++i)
+        {
+            graph.setExternalResource(
+                renderTargetRsc, i, d3d12.getFramebuffer(i).Get());
+        }
     };
 
     initGraph();
@@ -248,10 +255,8 @@ void run()
             d3d12.getFramebufferIndex(),
             { world, world * camera.getViewProj() });
 
-        graph.setExternalResource(renderTargetRsc, d3d12.getFramebuffer());
         graph.run(d3d12.getFramebufferIndex());
-        graph.clearExternalResources();
-
+        
         d3d12.swapFramebuffers();
         d3d12.endFrame();
         fpsCounter.frame_end();

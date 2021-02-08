@@ -20,12 +20,15 @@ struct VSOutput
 
 VSOutput VSMain(VSInput input)
 {
+    float4 position = float4(input.position, 1);
+
     VSOutput output;
-    output.position = mul(mul(float4(input.position, 1), World), ViewProj);
+    output.position = mul(mul(position, World), ViewProj);
+
     return output;
 }
 
-void PSMain(VSOutput input)
+float4 PSMain(VSOutput input) : SV_TARGET
 {
-    // do nothing
+    return float4(0.8, 0, 0, 1);
 }

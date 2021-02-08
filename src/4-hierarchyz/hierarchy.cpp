@@ -11,7 +11,12 @@ HierarchyZGenerator::HierarchyZGenerator(D3D12Context &d3d)
 }
 
 rg::Vertex *HierarchyZGenerator::addToRenderGraph(
-    rg::Graph *graph, rg::Resource *framebuffer)
+    rg::Graph    &graph,
+    rg::Resource *framebuffer,
+    int           depthThread,
+    int           depthQueue,
+    int           hierarchyThread,
+    int           hierarchyQueue)
 {
     depthViewport_ = framebuffer->getDefaultViewport();
     depthScissor_ = framebuffer->getDefaultScissor();
@@ -24,9 +29,11 @@ rg::Vertex *HierarchyZGenerator::addToRenderGraph(
 
     // depth pass
 
-    auto depthPass = graph->addPass("depth");
+    auto depthPass = graph.addPass("depth", depthThread, depthQueue);
     depthPass->addDSV(
-        depthBuffer_, D3D12_DEPTH_STENCIL_VIEW_DESC{
+        depthBuffer_,
+        rg::DepthStencilType::ReadAndWrite,
+        D3D12_DEPTH_STENCIL_VIEW_DESC{
             .Format        = DXGI_FORMAT_D32_FLOAT,
             .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
             .Flags         = D3D12_DSV_FLAG_NONE,
@@ -36,7 +43,8 @@ rg::Vertex *HierarchyZGenerator::addToRenderGraph(
 
     // copy depth pass
 
-    auto copyDepthPass = graph->addPass("copy depth to hierarchy");
+    auto copyDepthPass = graph.addPass(
+        "copy depth to hierarchy", depthThread, depthQueue);
     copyDepthPass->addResourceState(
         depthBuffer_, D3D12_RESOURCE_STATE_COPY_SOURCE);
     copyDepthPass->addResourceState(
@@ -50,11 +58,13 @@ rg::Vertex *HierarchyZGenerator::addToRenderGraph(
     std::vector<rg::Pass*> hierarchyPasses;
     for(size_t i = 0; i < mipmapSizes_.size() - 1; ++i)
     {
-        auto pass = graph->addPass("downsample_" + std::to_string(i));
+        auto pass = graph.addPass(
+            "downsample_" + std::to_string(i), hierarchyThread, hierarchyQueue);
 
         auto table = pass->addDescriptorTable(false, true);
         table->addSRV(
-            hierarchyZBuffer_, rg::ShaderResourceType::NonPixelOnly,
+            hierarchyZBuffer_,
+            rg::ShaderResourceType::NonPixelOnly,
             D3D12_SHADER_RESOURCE_VIEW_DESC{
                 .Format                  = DXGI_FORMAT_R32_FLOAT,
                 .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
@@ -68,6 +78,7 @@ rg::Vertex *HierarchyZGenerator::addToRenderGraph(
             });
         table->addUAV(
             hierarchyZBuffer_,
+            nullptr,
             D3D12_UNORDERED_ACCESS_VIEW_DESC{
                 .Format        = DXGI_FORMAT_R32_FLOAT,
                 .ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
@@ -83,16 +94,16 @@ rg::Vertex *HierarchyZGenerator::addToRenderGraph(
         hierarchyPasses.push_back(pass);
     }
 
-    graph->addDependency(depthPass, copyDepthPass);
+    graph.addDependency(depthPass, copyDepthPass);
 
     if(hierarchyPasses.empty())
-        return graph->addAggregate("hierarchy", depthPass, copyDepthPass);
+        return graph.addAggregate("hierarchy", depthPass, copyDepthPass);
 
-    graph->addDependency(copyDepthPass, hierarchyPasses.front());
+    graph.addDependency(copyDepthPass, hierarchyPasses.front());
     for(size_t i = 1; i < hierarchyPasses.size(); ++i)
-        graph->addDependency(hierarchyPasses[i - 1], hierarchyPasses[i]);
+        graph.addDependency(hierarchyPasses[i - 1], hierarchyPasses[i]);
 
-    return graph->addAggregate("hierarchy", depthPass, hierarchyPasses.back());
+    return graph.addAggregate("hierarchy", depthPass, hierarchyPasses.back());
 }
 
 void HierarchyZGenerator::addMesh(const Mesh *mesh)
@@ -100,11 +111,22 @@ void HierarchyZGenerator::addMesh(const Mesh *mesh)
     meshes_.push_back(mesh);
 }
 
+void HierarchyZGenerator::setCamera(const Mat4 &viewProj)
+{
+    viewProj_ = viewProj;
+}
+
+rg::Resource *HierarchyZGenerator::getHierarchyZBuffer() const
+{
+    return hierarchyZBuffer_;
+}
+
 void HierarchyZGenerator::initRootSignature()
 {
     {
-        CD3DX12_ROOT_PARAMETER params[1] = {};
+        CD3DX12_ROOT_PARAMETER params[2] = {};
         params[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+        params[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
         RootSignatureBuilder builder;
         for(auto &p : params)
@@ -133,12 +155,12 @@ void HierarchyZGenerator::initRootSignature()
 }
 
 void HierarchyZGenerator::initHierarchyZBuffer(
-    rg::Graph *graph, rg::Resource *framebuffer)
+    rg::Graph &graph, rg::Resource *framebuffer)
 {
     int w = static_cast<int>(framebuffer->getDescription().Width);
     int h = static_cast<int>(framebuffer->getDescription().Height);
 
-    depthBuffer_ = graph->addInternalResource("depth buffer");
+    depthBuffer_ = graph.addInternalResource("depth buffer");
     depthBuffer_->setInitialState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
     depthBuffer_->setClearValue(D3D12_CLEAR_VALUE{
         .Format       = DXGI_FORMAT_D32_FLOAT,
@@ -148,7 +170,7 @@ void HierarchyZGenerator::initHierarchyZBuffer(
         DXGI_FORMAT_R32_TYPELESS, w, h, 1, 1, 1, 0,
         D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
 
-    hierarchyZBuffer_ = graph->addInternalResource("hierarchy-z buffer");
+    hierarchyZBuffer_ = graph.addInternalResource("hierarchy-z buffer");
     hierarchyZBuffer_->setInitialState(D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     hierarchyZBuffer_->setDescription(CD3DX12_RESOURCE_DESC::Tex2D(
         DXGI_FORMAT_R32_FLOAT, w, h, 1, 0, 1, 0,
@@ -168,8 +190,10 @@ void HierarchyZGenerator::initHierarchyZBuffer(
 
 void HierarchyZGenerator::initConstantBuffer()
 {
-    assert(mipmapSizes_.size() >= 1);
+    vsCamera_.initializeUpload(
+        d3d_.getResourceManager(), d3d_.getFramebufferCount());
 
+    assert(mipmapSizes_.size() >= 1);
     csParams_.clear();
     csParams_.resize(mipmapSizes_.size() - 1);
     for(auto &c : csParams_)
@@ -263,6 +287,12 @@ void HierarchyZGenerator::doDepthPass(rg::PassContext &ctx)
 
     ctx->RSSetViewports(1, &depthViewport_);
     ctx->RSSetScissorRects(1, &depthScissor_);
+
+    ctx->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    vsCamera_.updateData(ctx.getFrameIndex(), { viewProj_ });
+    ctx->SetGraphicsRootConstantBufferView(
+        1, vsCamera_.getGPUVirtualAddress(ctx.getFrameIndex()));
 
     for(auto mesh : meshes_)
     {

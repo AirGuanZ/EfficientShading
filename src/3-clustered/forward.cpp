@@ -25,11 +25,14 @@ rg::Pass *ForwardRenderer::addToRenderGraph(const RenderGraphInput &graphInput)
         .Texture2D     = { 0, 0 }
     });
 
-    pass->addDSV(graphInput_.depthBuffer, D3D12_DEPTH_STENCIL_VIEW_DESC{
-        .Format        = DXGI_FORMAT_UNKNOWN,
-        .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
-        .Flags         = D3D12_DSV_FLAG_NONE,
-        .Texture2D     = { 0 }
+    pass->addDSV(
+        graphInput_.depthBuffer,
+        rg::DepthStencilType::ReadAndWrite,
+        D3D12_DEPTH_STENCIL_VIEW_DESC{
+            .Format        = DXGI_FORMAT_UNKNOWN,
+            .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
+            .Flags         = D3D12_DSV_FLAG_NONE,
+            .Texture2D     = { 0 }
         });
 
     psClusterTable_ = pass->addDescriptorTable(false, true);

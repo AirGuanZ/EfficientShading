@@ -31,7 +31,7 @@ public:
 
 private:
 
-    static constexpr int AVG_LIGHTS_PER_CLUSTER = 8;
+    static constexpr int AVG_LIGHTS_PER_CLUSTER = 128;
 
     struct CSParams
     {

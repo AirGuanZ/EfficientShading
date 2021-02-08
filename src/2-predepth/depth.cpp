@@ -22,12 +22,15 @@ rg::Pass *PreDepthRenderer::addToRenderGraph(
     scissor_ = depthBuffer_->getDefaultScissor();
 
     auto pass = graph.addPass("predepth");
-    pass->addDSV(depthBuffer, D3D12_DEPTH_STENCIL_VIEW_DESC{
-        .Format        = DXGI_FORMAT_UNKNOWN,
-        .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
-        .Flags         = D3D12_DSV_FLAG_NONE,
-        .Texture2D     = { 0 }
-    });
+    pass->addDSV(
+        depthBuffer,
+        rg::DepthStencilType::ReadAndWrite,
+        D3D12_DEPTH_STENCIL_VIEW_DESC{
+            .Format        = DXGI_FORMAT_UNKNOWN,
+            .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
+            .Flags         = D3D12_DSV_FLAG_NONE,
+            .Texture2D     = { 0 }
+        });
     pass->setCallback([this](auto &ctx) { this->doPreDepthPass(ctx); });
 
     return pass;

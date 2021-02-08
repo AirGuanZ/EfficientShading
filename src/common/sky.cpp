@@ -10,7 +10,7 @@ namespace common
         D3D12Context     &d3d12,
         ResourceUploader &uploader)
         : d3d12_(d3d12), uploader_(uploader),
-          renderTarget_(nullptr), rtvItem_(nullptr),
+          renderTarget_(nullptr),
           viewport_(), scissor_()
     {
     
@@ -121,7 +121,7 @@ namespace common
         renderTarget_ = renderTarget;
     
         auto pass = graph.addPass("render sky box");
-        rtvItem_ = pass->addRTV(renderTarget, RTVDesc);
+        pass->addRTV(renderTarget, RTVDesc);
         pass->setCallback([this](rg::PassContext &ctx)
         {
             doSkyPass(ctx);
@@ -227,7 +227,7 @@ namespace common
     
         vsTransform_.updateData(ctx.getFrameIndex(), { eye_, 0, viewProj_ });
     
-        auto RTV = ctx.getDescriptor(rtvItem_).getCPUHandle();
+        auto RTV = ctx.getDescriptor(renderTarget_).getCPUHandle();
         ctx->OMSetRenderTargets(1, &RTV, false, nullptr);
     
         ctx->SetPipelineState(pipeline_.Get());

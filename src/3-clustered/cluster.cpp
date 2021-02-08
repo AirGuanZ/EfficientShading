@@ -100,7 +100,7 @@ rg::Vertex *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int que
 
     uavTable_ = clusterPass->addDescriptorTable(false, true);
 
-    uavTable_->addUAV(clusterRange_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
+    uavTable_->addUAV(clusterRange_, nullptr, D3D12_UNORDERED_ACCESS_VIEW_DESC{
         .Format        = DXGI_FORMAT_UNKNOWN,
         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
         .Buffer        = D3D12_BUFFER_UAV{
@@ -112,7 +112,7 @@ rg::Vertex *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int que
         }
     });
 
-    uavTable_->addUAV(lightIndex_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
+    uavTable_->addUAV(lightIndex_, nullptr, D3D12_UNORDERED_ACCESS_VIEW_DESC{
         .Format        = DXGI_FORMAT_UNKNOWN,
         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
         .Buffer        = D3D12_BUFFER_UAV{
@@ -124,7 +124,7 @@ rg::Vertex *LightCluster::addToRenderGraph(rg::Graph &graph, int thread, int que
         }
     });
 
-    uavTable_->addUAV(lightIndexCounter_, D3D12_UNORDERED_ACCESS_VIEW_DESC{
+    uavTable_->addUAV(lightIndexCounter_, nullptr, D3D12_UNORDERED_ACCESS_VIEW_DESC{
         .Format        = DXGI_FORMAT_UNKNOWN,
         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
         .Buffer        = D3D12_BUFFER_UAV{

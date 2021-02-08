@@ -51,7 +51,7 @@ void CSMain(
 
     AABB clusterAABB = ClusterAABBBuffer[validCluster ? clusterIndex : 0];
 
-#define MAX_LIGHTS_PER_CLUSTER 64
+#define MAX_LIGHTS_PER_CLUSTER 128
     int localLightIndices[MAX_LIGHTS_PER_CLUSTER];
 
     for(int i = 0; i < Params.lightCount; i += LIGHT_BATCH_SIZE)
@@ -68,9 +68,8 @@ void CSMain(
 
         GroupMemoryBarrierWithGroupSync();
 
-        // fill ClusterRangeBuffer
-        // IMPROVE: use an atomic counter instead of fixed ranges for clusters
-
+        // fill localLightIndices
+        
         if(validCluster)
         {
             for(int j = 0; j < posEnd; ++j)

@@ -44,7 +44,7 @@ rg::Pass *MeshRenderer::addToRenderGraph(
     auto pass = graph.addPass("mesh renderer");
 
     pass->addRTV(renderTarget, RTVDesc);
-    pass->addDSV(depthStencil, DSVDesc);
+    pass->addDSV(depthStencil, rg::DepthStencilType::ReadAndWrite, DSVDesc);
 
     pass->setCallback(
         [renderTarget, depthStencil, this](rg::PassContext &ctx)

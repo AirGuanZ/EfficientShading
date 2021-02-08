@@ -8,15 +8,25 @@ public:
 
     explicit HierarchyZGenerator(D3D12Context &d3d);
 
-    rg::Vertex *addToRenderGraph(rg::Graph *graph, rg::Resource *framebuffer);
+    rg::Vertex *addToRenderGraph(
+        rg::Graph    &graph,
+        rg::Resource *framebuffer,
+        int           depthThread,
+        int           depthQueue,
+        int           hierarchyThread,
+        int           hierarchyQueue);
 
     void addMesh(const Mesh *mesh);
+
+    void setCamera(const Mat4 &viewProj);
+
+    rg::Resource *getHierarchyZBuffer() const;
 
 private:
 
     void initRootSignature();
 
-    void initHierarchyZBuffer(rg::Graph *graph, rg::Resource *framebuffer);
+    void initHierarchyZBuffer(rg::Graph &graph, rg::Resource *framebuffer);
 
     void initConstantBuffer();
 
@@ -36,11 +46,21 @@ private:
         int32_t thisHeight;
     };
 
+    struct VSCamera
+    {
+        Mat4 viewProj;
+    };
+
     D3D12Context &d3d_;
 
+    Mat4 viewProj_;
+
     // 0: vsTransform
+    // 1: vsCamera
     ComPtr<ID3D12RootSignature> depthRootSignature_;
     ComPtr<ID3D12PipelineState> depthPipeline_;
+
+    ConstantBuffer<VSCamera> vsCamera_;
 
     // 0: csParams          (b0)
     // 1: csTable

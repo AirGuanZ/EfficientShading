@@ -60,7 +60,7 @@ void run()
         light.lightPosition.x  = ufloat(-16, 8);
         light.lightPosition.y  = ufloat(-9, 2);
         light.lightPosition.z  = ufloat(-6, 6);
-        light.maxLightDistance = ufloat(0.5f, 1.5f);
+        light.maxLightDistance = 2.5f;
         light.lightIntensity.x = ufloat(0.5f, 1);
         light.lightIntensity.y = ufloat(0.5f, 1);
         light.lightIntensity.z = ufloat(0.5f, 1);
@@ -133,6 +133,7 @@ void run()
         framebuffer->setDescription(d3d12.getFramebuffer()->GetDesc());
         framebuffer->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
         framebuffer->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
+        framebuffer->setPerFrame();
 
         depthBuffer = graph.addInternalResource("depth buffer");
         depthBuffer->setInitialState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
@@ -172,11 +173,19 @@ void run()
         graph.addDependency(lightClusterPass, forwardPass);
         graph.addDependency(forwardPass, imguiPass);
 
+        graph.addCrossFrameDependency(forwardPass, lightClusterPass);
+
         graph.compile(
             d3d12.getDevice(),
             d3d12.getResourceManager(),
             d3d12.getDescriptorAllocator(),
             { d3d12.getGraphicsQueue(), d3d12.getComputeQueue() });
+
+        for(int i = 0; i < d3d12.getFramebufferCount(); ++i)
+        {
+            graph.setExternalResource(
+                framebuffer, i, d3d12.getFramebuffer(i).Get());
+        }
     };
 
     initGraph();
@@ -194,6 +203,7 @@ void run()
             input->isCursorLocked(),
             d3d12.getClientWidth() / 2,
             d3d12.getClientHeight() / 2);
+
         initGraph();
     }));
 
@@ -252,9 +262,7 @@ void run()
             d3d12.getFramebufferIndex(),
             { world, world * camera.getView(), world * camera.getViewProj() });
 
-        graph.setExternalResource(framebuffer, d3d12.getFramebuffer());
         graph.run(d3d12.getFramebufferIndex());
-        graph.clearExternalResources();
 
         d3d12.swapFramebuffers();
         d3d12.endFrame();

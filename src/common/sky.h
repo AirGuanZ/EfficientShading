@@ -64,7 +64,6 @@ namespace common
         Descriptor     cubeTexSRV_;
     
         rg::Resource *renderTarget_;
-        rg::DescriptorItem *rtvItem_;
     
         D3D12_VIEWPORT viewport_;
         D3D12_RECT     scissor_;

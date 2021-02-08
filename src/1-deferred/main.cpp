@@ -84,6 +84,7 @@ void run()
         framebufferRsc->setDescription(d3d12.getFramebuffer()->GetDesc());
         framebufferRsc->setInitialState(D3D12_RESOURCE_STATE_PRESENT);
         framebufferRsc->setFinalState(D3D12_RESOURCE_STATE_PRESENT);
+        framebufferRsc->setPerFrame();
 
         // sky pass
 
@@ -108,6 +109,12 @@ void run()
             d3d12.getResourceManager(),
             d3d12.getDescriptorAllocator(),
             { d3d12.getGraphicsQueue() });
+
+        for(int i = 0; i < d3d12.getFramebufferCount(); ++i)
+        {
+            graph.setExternalResource(
+                framebufferRsc, i, d3d12.getFramebuffer(i).Get());
+        }
     };
 
     initGraph();
@@ -196,10 +203,8 @@ void run()
             d3d12.getFramebufferIndex(),
             { world, world * camera.getViewProj() });
 
-        graph.setExternalResource(framebufferRsc, d3d12.getFramebuffer());
         graph.run(d3d12.getFramebufferIndex());
-        graph.clearExternalResources();
-
+        
         d3d12.swapFramebuffers();
         d3d12.endFrame();
         fpsCounter.frame_end();
