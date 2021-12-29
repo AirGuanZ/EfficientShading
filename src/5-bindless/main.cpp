@@ -37,7 +37,9 @@ void run()
             "./asset/bindless/tex2.png",
             "./asset/bindless/tex3.png"
         };
+
         TextureLoader textureLoader(d3d12.getResourceManager(), uploader);
+
         for(auto filename : TEXTURE_FILENAMES)
         {
             textures.push_back(textureLoader.loadFromFile(

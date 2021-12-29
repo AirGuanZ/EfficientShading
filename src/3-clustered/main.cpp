@@ -229,7 +229,7 @@ void run()
             input->setCursorLock(!input->isCursorLocked());
         }
 
-        if(ImGui::Begin("Clustered", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if(ImGui::Begin("clustered", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
             ImGui::Text(

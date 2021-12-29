@@ -190,7 +190,7 @@ void run()
             input->setCursorLock(!input->isCursorLocked());
         }
 
-        if(ImGui::Begin("PreDepth", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if(ImGui::Begin("pre-depth", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::Text("fps: %d", fpsCounter.fps());
             ImGui::Text(
